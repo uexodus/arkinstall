@@ -14,6 +14,7 @@ import native.libparted.PedDevice
 import parted.bindings.PartedBindings
 import parted.exception.PartedDeviceException
 
+/** A wrapper for a [PedDevice](https://www.gnu.org/software/parted/api/struct__PedDevice.html) object */
 @OptIn(ExperimentalForeignApi::class)
 class PartedDevice private constructor(
     override val pointer: OwnedSafeCPointer<PedDevice>
@@ -83,7 +84,7 @@ class PartedDevice private constructor(
     """.trimIndent()
 
     override fun summary(): String {
-        return "$path ($model, $size)"
+        return "Device - $path, $model, $size"
     }
 
     companion object {
