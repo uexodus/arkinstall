@@ -1,0 +1,14 @@
+package = native.syslog
+
+headers = syslog.h
+
+compilerOpts.linux = -I/usr/include
+linkerOpts.linux = -L/usr/lib -lc
+
+noStringConversion = openlog
+
+# The platform.posix interop provides the openlog function, but it performs an automatic
+# conversion from const char * to String. This copies the string to a temporary buffer,
+# which is immediately freed after the call (I think). Because openlog() expects the ident
+# string to remain valid for the lifetime of syslog usage, this causes undefined behavior.
+# By disabling string conversion here, we ensure we can pass a stable C pointer manually.
