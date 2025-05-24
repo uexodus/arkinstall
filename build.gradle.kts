@@ -39,7 +39,7 @@ kotlin {
     }
 }
 
-tasks.register("stripKexeExtension") {
+tasks.register("removeKexeExtension") {
     group = "build"
     description = "Remove the .kexe extension"
 
@@ -62,16 +62,34 @@ tasks.register("stripKexeExtension") {
                 Files.delete(oldPath)
             }
 
-            // Create symlink: arkinstall.kexe -> arkinstall so gradle is happy
+            // Create symlink: arkinstall.kexe -> arkinstall so gradle is happy :)
             Files.createSymbolicLink(oldPath, newPath.fileName)
         }
     }
 }
 
+tasks.register("stripReleaseExecutableNative") {
+    group = "build"
+    description = "Strip symbols from the release executable"
+
+    dependsOn("linkReleaseExecutableNative")
+
+    doLast {
+        val outputFile = layout.buildDirectory.file("bin/native/releaseExecutable/arkinstall.kexe").get().asFile
+        if (!outputFile.exists()) error("Failed to find path to release executable")
+        println("Stripping symbols from ${outputFile.absolutePath}")
+
+        exec {
+            commandLine("strip", "--strip-unneeded", outputFile.absolutePath)
+        }
+
+    }
+}
+
 tasks.named("linkDebugExecutableNative") {
-    finalizedBy("stripKexeExtension")
+    finalizedBy("removeKexeExtension")
 }
 
 tasks.named("linkReleaseExecutableNative") {
-    finalizedBy("stripKexeExtension")
+    finalizedBy("removeKexeExtension", "stripReleaseExecutableNative")
 }
