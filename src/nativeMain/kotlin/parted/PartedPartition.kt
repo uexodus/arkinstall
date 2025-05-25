@@ -49,7 +49,14 @@ class PartedPartition(
 
     override fun close() = pointer.close()
 
-    override fun toString() = "PartedPartition(no=$number, type=$type)"
+    override fun toString() = """
+        PartedPartition(
+            number=$number,
+            type=$type,
+            previous=${previous?.summary()},
+            next=${next?.summary()},
+        )
+    """.trimIndent()
 
-    override fun summary(): String = "Partition - no=$number"
+    override fun summary(): String = "PartedPartition(no=$number, type=$type)"
 }

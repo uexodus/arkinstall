@@ -9,10 +9,7 @@ fun main() {
 
         device.openDisk().getOrExit().use { disk ->
             println("Disk information:")
-            println("Type: ${disk.type}")
-            for (partition in disk.partitions) {
-                println(partition)
-            }
+            println("$disk")
         }
     }
 

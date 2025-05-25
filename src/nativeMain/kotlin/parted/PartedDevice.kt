@@ -24,6 +24,10 @@ class PartedDevice private constructor(
     val length: Long
         get() = pointer.immut { it.pointed.length }
 
+    /** Total disk size in bytes, including reserved regions. */
+    val size: Size
+        get() = Size.fromSectors(length, logicalSectorSize)
+
     /** Returns the next linked [PartedDevice] in the parted device list, if any */
     val next: PartedDevice?
         get() = pointer.immut {
@@ -53,14 +57,12 @@ class PartedDevice private constructor(
         get() = pointer.immut { it.pointed.read_only == 1 }
 
     /** Logical sector size, in bytes */
-    val sectorSize: Size
+    val logicalSectorSize: Size
         get() = pointer.immut { Size(it.pointed.sector_size) }
 
     /** Device type (SCSI, IDE, etc.) */
     val type: PartedDeviceType
         get() = pointer.immut { PartedDeviceType.fromOrdinal(it.pointed.type) }
-
-    val size = Size.fromSectors(length, sectorSize)
 
     fun openDisk(): Result<PartedDisk> {
         return PartedDisk.fromDevice(this)
@@ -72,19 +74,19 @@ class PartedDevice private constructor(
 
     override fun toString(): String = """
         PartedDevice(
-            path = ${path ?: "Unknown"},
-            model = ${model ?: "Unknown"},
-            type = $type,
-            readOnly = $readOnly,
-            length = $length sectors,
-            physicalSectorSize = $physicalSectorSize,
-            sectorSize = $sectorSize,
-            openCount = $openCount
+            path=$path,
+            model=$model,
+            type=$type,
+            readOnly=$readOnly,
+            length=$length sectors,
+            physicalSectorSize=$physicalSectorSize,
+            logicalSectorSize=$logicalSectorSize,
+            openCount=$openCount
         )
     """.trimIndent()
 
     override fun summary(): String {
-        return "Device - $path, $model, $size"
+        return "PartedDevice(path=${path ?: "Unknown"}, model=${model ?: "Unknown"}, size=$size)"
     }
 
     companion object {

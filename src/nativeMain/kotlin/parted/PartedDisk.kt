@@ -40,9 +40,19 @@ class PartedDisk private constructor(
 
     override fun close() = pointer.close()
 
-    override fun toString(): String = "PartedDisk(type = $type, partitions = ${partitions.count()}"
+    override fun toString(): String = buildString {
+        appendLine("PartedDisk(")
+        appendLine("    device=${device.path}")
+        appendLine("    type=${type}")
+        appendLine("    partitions=[")
+        partitions.forEach { partition ->
+            appendLine("        ${partition.summary()}")
+        }
+        appendLine("    ]")
+        appendLine(")")
+    }
 
-    override fun summary(): String = "Disk - $type, partitions=${partitions.count()}"
+    override fun summary(): String = "PartedDisk(device=${device.path}, type=${type}, partitions=${partitions.count()})"
 
     companion object {
         /** Gets a disk object from a device object */
