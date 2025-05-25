@@ -4,6 +4,7 @@ import cinterop.OwnedSafeCPointer
 import cinterop.SafeCPointer
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.pointed
 import native.libparted.*
 import parted.types.NativePedConstraint
 import parted.types.NativePedDevice
@@ -13,8 +14,8 @@ import parted.types.NativePedFileSystemType
 import parted.types.NativePedGeometry
 import parted.types.NativePedPartition
 
-@OptIn(ExperimentalForeignApi::class)
 /** Bindings for [libparted](https://www.gnu.org/software/parted/api/) */
+@OptIn(ExperimentalForeignApi::class)
 object PartedBindings {
 
     fun refreshDevices() {
@@ -79,7 +80,10 @@ object PartedBindings {
         return OwnedSafeCPointer.create(
             partitionCPointer, NativePedPartition::class
         ) {
-            ped_partition_destroy(it)
+            // Only free the partition object if it's not part of a disk
+            if (it.pointed.disk == null) {
+                ped_partition_destroy(it)
+            }
         }
     }
 

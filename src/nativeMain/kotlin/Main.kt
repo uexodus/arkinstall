@@ -2,14 +2,17 @@ import log.getOrExit
 import parted.PartedDevice
 
 fun main() {
-    PartedDevice.open("/dev/sda").getOrExit().use {
+    PartedDevice.open("/dev/sda").getOrExit().use { device ->
         println("Device Information:")
-        println(it)
+        println(device)
         println()
 
-        it.openDisk().getOrExit().use { disk ->
+        device.openDisk().getOrExit().use { disk ->
             println("Disk information:")
             println("Type: ${disk.type}")
+            for (partition in disk.partitions) {
+                println(partition)
+            }
         }
     }
 

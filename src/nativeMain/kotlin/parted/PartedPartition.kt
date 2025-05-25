@@ -6,6 +6,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import native.libparted.PedPartition
 import parted.bindings.PartedBindings
+import parted.types.PartedPartitionType
 
 /** A wrapper for a [PedPartition](https://www.gnu.org/software/parted/api/struct__PedPartition.html) object */
 @OptIn(ExperimentalForeignApi::class)
@@ -40,15 +41,15 @@ class PartedPartition(
             }
         }
 
+    /** The type of partition, a bitfield */
+    val type: PartedPartitionType
+        get() = pointer.immut {
+            PartedPartitionType(it.pointed.type)
+        }
+
     override fun close() = pointer.close()
 
-    override fun toString(): String = """
-        PartedPartition(
-            number = $number,
-            next = ${next?.summary() ?: "None"},
-            prev = ${previous?.summary() ?: "None"},
-        )
-    """.trimIndent()
+    override fun toString() = "PartedPartition(no=$number, type=$type)"
 
-    override fun summary(): String = "Partition - num=$number"
+    override fun summary(): String = "Partition - no=$number"
 }
