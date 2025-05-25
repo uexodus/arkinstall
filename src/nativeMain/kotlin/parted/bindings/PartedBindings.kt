@@ -73,6 +73,16 @@ object PartedBindings {
         return SafeCPointer.create(ptr, NativePedFileSystemType::class)
     }
 
+    fun fromPartitionPointer(
+        partitionCPointer: CPointer<PedPartition>
+    ): OwnedSafeCPointer<PedPartition> {
+        return OwnedSafeCPointer.create(
+            partitionCPointer, NativePedPartition::class
+        ) {
+            ped_partition_destroy(it)
+        }
+    }
+
     fun createPartition(
         disk: OwnedSafeCPointer<PedDisk>,
         type: PedPartitionType,
@@ -80,14 +90,12 @@ object PartedBindings {
         start: PedSector,
         end: PedSector
     ): OwnedSafeCPointer<PedPartition>? {
-        val ptr = disk.immut { diskPtr ->
+        val partitionCPointer = disk.immut { diskPtr ->
             fsType.immut { fsPtr ->
                 ped_partition_new(diskPtr, type, fsPtr, start, end)
             }
         } ?: return null
-        return OwnedSafeCPointer.create(ptr, NativePedPartition::class) {
-            ped_partition_destroy(it)
-        }
+        return fromPartitionPointer(partitionCPointer)
     }
 
     fun getDiskType(device: SafeCPointer<PedDevice>): SafeCPointer<PedDiskType>? {
