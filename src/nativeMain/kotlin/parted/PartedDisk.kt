@@ -22,7 +22,10 @@ class PartedDisk private constructor(
         get() = pointer.immut { ptr ->
             ptr.pointed.part_list
                 ?.asList(PartedBindings::fromPartitionPointer) { it.pointed.next }
-                ?.map { PartedPartition(it, this) }
+                ?.map {
+                    pointer.addChild(it)
+                    PartedPartition(it, this)
+                }
                 ?: listOf()
         }
 

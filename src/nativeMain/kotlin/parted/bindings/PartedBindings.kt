@@ -5,6 +5,7 @@ import cinterop.SafeCPointer
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
+import log.Logger
 import native.libparted.*
 import parted.types.NativePedConstraint
 import parted.types.NativePedDevice
@@ -17,6 +18,7 @@ import parted.types.NativePedPartition
 /** Bindings for [libparted](https://www.gnu.org/software/parted/api/) */
 @OptIn(ExperimentalForeignApi::class)
 object PartedBindings {
+    val logger = Logger(PartedBindings::class)
 
     fun refreshDevices() {
         ped_device_probe_all()
@@ -83,6 +85,8 @@ object PartedBindings {
             // Only free the partition object if it's not part of a disk
             if (it.pointed.disk == null) {
                 ped_partition_destroy(it)
+            } else {
+                logger.i { "Didn't actually free pointer ${it.rawValue} as it belongs to a disk" }
             }
         }
     }
