@@ -2,6 +2,7 @@ package parted
 
 import cinterop.OwnedSafeCObject
 import cinterop.OwnedSafeCPointer
+import cinterop.SafeCObject
 import cinterop.util.asList
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
@@ -13,10 +14,7 @@ import parted.types.PartedPartitionType
 
 /** A wrapper for a [PedDisk](https://www.gnu.org/software/parted/api/struct__PedDisk.html) object **/
 @OptIn(ExperimentalForeignApi::class)
-class PartedDisk private constructor(
-    override val pointer: OwnedSafeCPointer<PedDisk>,
-    val device: PartedDevice
-) : OwnedSafeCObject<PedDisk> {
+sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
 
     private val _partitions: List<PartedPartition>
         get() = pointer.immut { ptr ->
@@ -24,7 +22,7 @@ class PartedDisk private constructor(
                 ?.asList(PartedBindings::fromPartitionPointer) { it.pointed.next }
                 ?.map {
                     pointer.addChild(it)
-                    PartedPartition(it, this)
+                    PartedPartition.Borrowed(it, this)
                 }
                 ?: listOf()
         }
@@ -40,8 +38,6 @@ class PartedDisk private constructor(
                 ptr.pointed.type?.let { PartedBindings.fromDiskTypePointer(it) }
             )
         }
-
-    override fun close() = pointer.close()
 
     override fun toString(): String = buildString {
         appendLine("PartedDisk(")
@@ -59,9 +55,18 @@ class PartedDisk private constructor(
 
     companion object {
         /** Gets a disk object from a device object */
-        fun fromDevice(device: PartedDevice): Result<PartedDisk> =
+        fun fromDevice(device: PartedDevice): Result<Owned> =
             PartedBindings.getDisk(device.pointer)
-                ?.let { Result.success(PartedDisk(it, device)) }
-                ?: Result.failure(PartedDeviceException("No disk detected on device: ${device.summary()}"))
+                ?.let { Result.success(Owned(it, device)) }
+                ?: Result.failure(
+                    PartedDeviceException("No disk detected on device: ${device.summary()}")
+                )
+    }
+
+    class Owned(
+        override val pointer: OwnedSafeCPointer<PedDisk>,
+        device: PartedDevice
+    ) : PartedDisk(device), OwnedSafeCObject<PedDisk> {
+        override fun close() = pointer.free()
     }
 }

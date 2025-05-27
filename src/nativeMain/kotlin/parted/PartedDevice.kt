@@ -1,9 +1,9 @@
 package parted
 
-import parted.types.PartedDeviceType
 import cinterop.OwnedSafeCObject
 import cinterop.OwnedSafeCPointer
-import unit.Size
+import cinterop.SafeCObject
+import cinterop.SafeCPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import kotlinx.cinterop.toKString
@@ -13,12 +13,12 @@ import log.Logger
 import native.libparted.PedDevice
 import parted.bindings.PartedBindings
 import parted.exception.PartedDeviceException
+import parted.types.PartedDeviceType
+import unit.Size
 
 /** A wrapper for a [PedDevice](https://www.gnu.org/software/parted/api/struct__PedDevice.html) object */
 @OptIn(ExperimentalForeignApi::class)
-class PartedDevice private constructor(
-    override val pointer: OwnedSafeCPointer<PedDevice>
-) : OwnedSafeCObject<PedDevice> {
+sealed class PartedDevice : SafeCObject<PedDevice> {
 
     /** Total disk size in sectors, including reserved regions. */
     val length: Long
@@ -32,7 +32,7 @@ class PartedDevice private constructor(
     val next: PartedDevice?
         get() = pointer.immut {
             it.pointed.next?.let { nextPtr ->
-                PartedDevice(PartedBindings.fromDevicePointer(nextPtr))
+                Borrowed(PartedBindings.fromDevicePointer(nextPtr))
             }
         }
 
@@ -93,7 +93,7 @@ class PartedDevice private constructor(
     companion object {
         private val logger = Logger(PartedDevice::class)
 
-        fun open(path: String, refreshDevices: Boolean = true): Result<PartedDevice> {
+        fun open(path: String, refreshDevices: Boolean = true): Result<Owned> {
             if (refreshDevices) PartedBindings.refreshDevices()
 
             if (!SystemFileSystem.exists(Path(path))) {
@@ -101,8 +101,20 @@ class PartedDevice private constructor(
             }
 
             return PartedBindings.getDevice(path)
-                ?.let { Result.success(PartedDevice(it)) }
+                ?.let { Result.success(Owned(it)) }
                 ?: Result.failure(PartedDeviceException("Failed to open device at path $path"))
         }
+    }
+
+    class Owned(
+        override val pointer: OwnedSafeCPointer<PedDevice>
+    ) : PartedDevice(), OwnedSafeCObject<PedDevice> {
+        override fun close() = pointer.free()
+    }
+
+    class Borrowed(
+        override val pointer: SafeCPointer<PedDevice>
+    ) : PartedDevice() {
+        override fun close() = pointer.release()
     }
 }

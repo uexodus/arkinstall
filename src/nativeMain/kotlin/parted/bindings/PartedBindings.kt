@@ -24,18 +24,22 @@ object PartedBindings {
         ped_device_probe_all()
     }
 
-    fun fromDevicePointer(deviceCPointer: CPointer<PedDevice>): OwnedSafeCPointer<PedDevice> {
+    fun fromOwnedDevicePointer(deviceCPointer: CPointer<PedDevice>): OwnedSafeCPointer<PedDevice> {
         return OwnedSafeCPointer.create(deviceCPointer, NativePedDevice::class) {
             ped_device_destroy(it)
         }
     }
 
-    fun getDevice(devicePath: String): OwnedSafeCPointer<PedDevice>? {
-        val ptr = ped_device_get(devicePath) ?: return null
-        return fromDevicePointer(ptr)
+    fun fromDevicePointer(deviceCPointer: CPointer<PedDevice>): SafeCPointer<PedDevice> {
+        return SafeCPointer.create(deviceCPointer, NativePedDevice::class)
     }
 
-    fun fromDiskPointer(diskCPointer: CPointer<PedDisk>): OwnedSafeCPointer<PedDisk> {
+    fun getDevice(devicePath: String): OwnedSafeCPointer<PedDevice>? {
+        val ptr = ped_device_get(devicePath) ?: return null
+        return fromOwnedDevicePointer(ptr)
+    }
+
+    fun fromOwnedDiskPointer(diskCPointer: CPointer<PedDisk>): OwnedSafeCPointer<PedDisk> {
         return OwnedSafeCPointer.create(diskCPointer, NativePedDisk::class) {
             ped_disk_destroy(it)
         }
@@ -43,7 +47,7 @@ object PartedBindings {
 
     fun getDisk(device: SafeCPointer<PedDevice>): OwnedSafeCPointer<PedDisk>? {
         val diskCPointer = device.immut { ped_disk_new(it) } ?: return null
-        return fromDiskPointer(diskCPointer)
+        return fromOwnedDiskPointer(diskCPointer)
     }
 
     fun createDisk(
@@ -55,7 +59,7 @@ object PartedBindings {
                 ped_disk_new_fresh(devicePtr, typePtr)
             }
         } ?: return null
-        return fromDiskPointer(diskCPointer)
+        return fromOwnedDiskPointer(diskCPointer)
     }
 
     fun fromDiskTypePointer(diskTypeCPointer: CPointer<PedDiskType>): SafeCPointer<PedDiskType> {
@@ -76,7 +80,7 @@ object PartedBindings {
         return SafeCPointer.create(ptr, NativePedFileSystemType::class)
     }
 
-    fun fromPartitionPointer(
+    fun fromOwnedPartitionPointer(
         partitionCPointer: CPointer<PedPartition>
     ): OwnedSafeCPointer<PedPartition> {
         return OwnedSafeCPointer.create(
@@ -91,6 +95,12 @@ object PartedBindings {
         }
     }
 
+    fun fromPartitionPointer(
+        partitionCPointer: CPointer<PedPartition>
+    ): SafeCPointer<PedPartition> {
+        return SafeCPointer.create(partitionCPointer, NativePedPartition::class)
+    }
+
     fun createPartition(
         disk: OwnedSafeCPointer<PedDisk>,
         type: PedPartitionType,
@@ -103,7 +113,7 @@ object PartedBindings {
                 ped_partition_new(diskPtr, type, fsPtr, start, end)
             }
         } ?: return null
-        return fromPartitionPointer(partitionCPointer)
+        return fromOwnedPartitionPointer(partitionCPointer)
     }
 
     fun getDiskType(device: SafeCPointer<PedDevice>): SafeCPointer<PedDiskType>? {
