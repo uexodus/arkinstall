@@ -140,15 +140,23 @@ object PartedBindings {
         return SafeCPointer.create(ptr, NativePedConstraint::class)
     }
 
+    fun fromOwnedGeometryPointer(geometryCPointer: CPointer<PedGeometry>): OwnedSafeCPointer<PedGeometry> {
+        return OwnedSafeCPointer.create(geometryCPointer, NativePedGeometry::class) {
+            ped_geometry_destroy(it)
+        }
+    }
+
+    fun fromGeometryPointer(geometryCPointer: CPointer<PedGeometry>): SafeCPointer<PedGeometry> {
+        return SafeCPointer.create(geometryCPointer, NativePedGeometry::class)
+    }
+
     fun createGeometry(
         device: SafeCPointer<PedDevice>,
         start: PedSector,
         length: PedSector
     ): OwnedSafeCPointer<PedGeometry>? {
         val ptr = device.immut { ped_geometry_new(it, start, length) } ?: return null
-        return OwnedSafeCPointer.create(ptr, NativePedGeometry::class) {
-            ped_geometry_destroy(it)
-        }
+        return fromOwnedGeometryPointer(ptr)
     }
 
 }

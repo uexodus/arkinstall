@@ -6,6 +6,7 @@ import cinterop.SafeCObject
 import cinterop.SafeCPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
+import kotlinx.cinterop.ptr
 import native.libparted.PedPartition
 import parted.bindings.PartedBindings
 import parted.types.PartedPartitionType
@@ -40,16 +41,25 @@ sealed class PartedPartition(
     val type: PartedPartitionType
         get() = pointer.immut { PartedPartitionType(it.pointed.type) }
 
+    /** The geometry of the partition */
+    val geometry: PartedGeometry
+        get() = pointer.immut {
+            val geometryPointer = PartedBindings.fromGeometryPointer(it.pointed.geom.ptr)
+            pointer.addChild(geometryPointer)
+            PartedGeometry.Borrowed(geometryPointer, disk.device)
+        }
+
     override fun toString() = """
         PartedPartition(
             number=$number,
             type=$type,
+            geometry=${geometry.summary()},
             previous=${previous?.summary()},
             next=${next?.summary()},
         )
     """.trimIndent()
 
-    override fun summary(): String = "PartedPartition(no=$number, type=$type)"
+    override fun summary(): String = "PartedPartition(no=$number, size=${geometry.size}, type=$type)"
 
     class Owned(
         override val pointer: OwnedSafeCPointer<PedPartition>,
