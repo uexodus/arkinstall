@@ -79,6 +79,7 @@ class PartedDevice private constructor(
             type=$type,
             readOnly=$readOnly,
             length=$length sectors,
+            size=$size,
             physicalSectorSize=$physicalSectorSize,
             logicalSectorSize=$logicalSectorSize,
             openCount=$openCount
