@@ -9,6 +9,7 @@ import kotlinx.cinterop.pointed
 import native.libparted.PedDisk
 import parted.bindings.PartedBindings
 import parted.exception.PartedDeviceException
+import parted.exception.PartedDiskException
 import parted.types.PartedDiskType
 import parted.types.PartedPartitionType
 
@@ -39,6 +40,17 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
             )
         }
 
+    /** Commits the in-memory partition table changes to disk and informs the kernel. */
+    fun commit(): Result<Unit> {
+        val success = PartedBindings.commitToDisk(pointer)
+
+        return if (success) {
+            Result.success(Unit)
+        } else {
+            Result.failure(PartedDiskException("Failed to commit changes to device ${device.path}"))
+        }
+    }
+
     override fun toString(): String = buildString {
         appendLine("PartedDisk(")
         appendLine("    device=${device.path}")
@@ -48,18 +60,32 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
             appendLine("        ${partition.summary()}")
         }
         appendLine("    ]")
-        appendLine(")")
+        append(")")
     }
 
     override fun summary(): String = "PartedDisk(device=${device.path}, type=${type}, partitions=${partitions.count()})"
 
     companion object {
-        /** Gets a disk object from a device object */
+        /** Retrieves the disk associated with the given device, if a partition table exists. */
         fun fromDevice(device: PartedDevice): Result<Owned> =
             PartedBindings.getDisk(device.pointer)
-                ?.let { Result.success(Owned(it, device)) }
+                ?.let {
+                    device.pointer.addChild(it)
+                    Result.success(Owned(it, device))
+                }
                 ?: Result.failure(
                     PartedDeviceException("No disk detected on device: ${device.summary()}")
+                )
+
+        /** Creates a partition table of the given [type] on the [device] */
+        fun newDisk(device: PartedDevice, type: PartedDiskType) =
+            PartedBindings.createDisk(device.pointer, type.pointer)
+                ?.let {
+                    device.pointer.addChild(it)
+                    Result.success(Owned(it, device))
+                }
+                ?: Result.failure(
+                    PartedDeviceException("Failed to create partition table on device: ${device.summary()}")
                 )
     }
 

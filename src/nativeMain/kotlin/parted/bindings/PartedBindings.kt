@@ -71,7 +71,7 @@ object PartedBindings {
         return fromDiskTypePointer(ptr)
     }
 
-    fun commitToDisk(disk: OwnedSafeCPointer<PedDisk>): Boolean {
+    fun commitToDisk(disk: SafeCPointer<PedDisk>): Boolean {
         return disk.mut { ped_disk_commit(it) } == 1
     }
 

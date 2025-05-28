@@ -9,11 +9,11 @@ import kotlinx.cinterop.pointed
 import kotlinx.cinterop.toKString
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
-import log.Logger
 import native.libparted.PedDevice
 import parted.bindings.PartedBindings
 import parted.exception.PartedDeviceException
 import parted.types.PartedDeviceType
+import parted.types.PartedDiskType
 import unit.Size
 
 /** A wrapper for a [PedDevice](https://www.gnu.org/software/parted/api/struct__PedDevice.html) object */
@@ -66,8 +66,10 @@ sealed class PartedDevice : SafeCObject<PedDevice> {
 
     fun openDisk(): Result<PartedDisk> {
         return PartedDisk.fromDevice(this)
-            .onSuccess { disk -> pointer.addChild(disk.pointer) }
-            .onFailure { logger.e { it.message ?: "Unknown error" } }
+    }
+
+    fun createDisk(type: PartedDiskType): Result<PartedDisk> {
+        return PartedDisk.newDisk(this, type)
     }
 
     override fun close() = pointer.close()
@@ -91,8 +93,6 @@ sealed class PartedDevice : SafeCObject<PedDevice> {
     }
 
     companion object {
-        private val logger = Logger(PartedDevice::class)
-
         fun open(path: String, refreshDevices: Boolean = true): Result<Owned> {
             if (refreshDevices) PartedBindings.refreshDevices()
 
