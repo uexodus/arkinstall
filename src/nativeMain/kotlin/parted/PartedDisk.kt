@@ -65,34 +65,32 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
 
     override fun summary(): String = "PartedDisk(device=${device.path}, type=${type}, partitions=${partitions.count()})"
 
-    companion object {
-        /** Retrieves the disk associated with the given device, if a partition table exists. */
-        fun fromDevice(device: PartedDevice): Result<Owned> =
-            PartedBindings.getDisk(device.pointer)
-                ?.let {
-                    device.pointer.addChild(it)
-                    Result.success(Owned(it, device))
-                }
-                ?: Result.failure(
-                    PartedDeviceException("No disk detected on device: ${device.summary()}")
-                )
-
-        /** Creates a partition table of the given [type] on the [device] */
-        fun newDisk(device: PartedDevice, type: PartedDiskType) =
-            PartedBindings.createDisk(device.pointer, type.pointer)
-                ?.let {
-                    device.pointer.addChild(it)
-                    Result.success(Owned(it, device))
-                }
-                ?: Result.failure(
-                    PartedDeviceException("Failed to create partition table on device: ${device.summary()}")
-                )
-    }
-
     class Owned(
         override val pointer: OwnedSafeCPointer<PedDisk>,
         device: PartedDevice
     ) : PartedDisk(device), OwnedSafeCObject<PedDisk> {
         override fun close() = pointer.free()
+    }
+
+    companion object {
+        /** Retrieves the disk associated with the given device, if a partition table exists. */
+        fun fromDevice(device: PartedDevice): Result<Owned> = runCatching {
+            val diskPointer = PartedBindings.getDisk(device.pointer)
+                ?: throw PartedDeviceException("No disk detected on device: ${device.summary()}")
+
+            device.pointer.addChild(diskPointer)
+            Owned(diskPointer, device)
+        }
+
+        /** Creates a partition table of the given [type] on the [device] */
+        fun new(device: PartedDevice, type: PartedDiskType) = runCatching {
+            val diskPointer = PartedBindings.createDisk(device.pointer, type.pointer)
+                ?: throw PartedDeviceException(
+                    "Failed to create partition table on device: ${device.summary()}"
+                )
+
+            device.pointer.addChild(diskPointer)
+            Owned(diskPointer, device)
+        }
     }
 }

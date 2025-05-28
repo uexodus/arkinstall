@@ -69,7 +69,7 @@ sealed class PartedDevice : SafeCObject<PedDevice> {
     }
 
     fun createDisk(type: PartedDiskType): Result<PartedDisk> {
-        return PartedDisk.newDisk(this, type)
+        return PartedDisk.new(this, type)
     }
 
     override fun close() = pointer.close()
@@ -92,20 +92,6 @@ sealed class PartedDevice : SafeCObject<PedDevice> {
         return "PartedDevice(path=${path ?: "Unknown"}, model=${model ?: "Unknown"}, size=$size)"
     }
 
-    companion object {
-        fun open(path: String, refreshDevices: Boolean = true): Result<Owned> {
-            if (refreshDevices) PartedBindings.refreshDevices()
-
-            if (!SystemFileSystem.exists(Path(path))) {
-                return Result.failure(PartedDeviceException("Device not found at path $path"))
-            }
-
-            return PartedBindings.getDevice(path)
-                ?.let { Result.success(Owned(it)) }
-                ?: Result.failure(PartedDeviceException("Failed to open device at path $path"))
-        }
-    }
-
     class Owned(
         override val pointer: OwnedSafeCPointer<PedDevice>
     ) : PartedDevice(), OwnedSafeCObject<PedDevice> {
@@ -116,5 +102,23 @@ sealed class PartedDevice : SafeCObject<PedDevice> {
         override val pointer: SafeCPointer<PedDevice>
     ) : PartedDevice() {
         override fun close() = pointer.release()
+    }
+
+    companion object {
+        /** Attempts to open the device at the given path */
+        fun open(path: String, refreshDevices: Boolean = true): Result<Owned> = runCatching {
+            if (refreshDevices) PartedBindings.refreshDevices()
+
+            val devicePath = Path(path)
+
+            if (!SystemFileSystem.exists(devicePath)) {
+                throw PartedDeviceException("Device not found at path $path")
+            }
+
+            val devicePointer = PartedBindings.getDevice(path)
+                ?: throw PartedDeviceException("Failed to open device at path $path")
+
+            Owned(devicePointer)
+        }
     }
 }
