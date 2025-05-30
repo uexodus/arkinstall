@@ -7,9 +7,11 @@ import cinterop.util.asList
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import native.libparted.PedDisk
+import parted.PartedPartition.Borrowed
 import parted.bindings.PartedBindings
 import parted.exception.PartedDeviceException
 import parted.exception.PartedDiskException
+import parted.exception.PartedPartitionException
 import parted.types.PartedDiskType
 import parted.types.PartedPartitionType
 
@@ -23,7 +25,7 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
                 ?.asList(PartedBindings::fromPartitionPointer) { it.pointed.next }
                 ?.map {
                     pointer.addChild(it)
-                    PartedPartition.Borrowed(it, this)
+                    Borrowed(it, this)
                 }
                 ?: listOf()
         }
@@ -49,6 +51,34 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
         } else {
             Result.failure(PartedDiskException("Failed to commit changes to device ${device.path}"))
         }
+    }
+
+    /** Adds a partition the partition table.
+     * Do not use the passed [partition] object afterward - use the returned object
+     *
+     * Since this adds the partition object to the partition table, we can no longer free it via
+     * `ped_partition_destroy()` as the disk object takes over freeing responsibility
+     */
+    fun add(partition: PartedPartition.Owned, constraint: PartedConstraint): Result<Borrowed> = runCatching {
+        val success = PartedBindings.addPartition(
+            pointer,
+            partition.pointer,
+            constraint.pointer
+        )
+
+        if (!success) {
+            throw PartedPartitionException("Failed to add partition to disk ${device.path}")
+        }
+
+        // retrieve the raw address from the OwnedSafeCPointer wrapper
+        val rawPointer = partition.pointer.immut { it }
+        // release the OwnedSafeCPointer
+        partition.pointer.release()
+        // create a SafeCPointer from the same address
+        val partitionPointer = PartedBindings.fromPartitionPointer(rawPointer)
+        pointer.addChild(partitionPointer)
+
+        Borrowed(partitionPointer, this)
     }
 
     override fun toString(): String = buildString {

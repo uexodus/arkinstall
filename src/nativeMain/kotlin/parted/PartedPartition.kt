@@ -9,6 +9,8 @@ import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
 import native.libparted.PedPartition
 import parted.bindings.PartedBindings
+import parted.exception.PartedPartitionException
+import parted.types.PartedFilesystemType
 import parted.types.PartedPartitionType
 
 /** A wrapper for a [PedPartition](https://www.gnu.org/software/parted/api/struct__PedPartition.html) object */
@@ -73,5 +75,27 @@ sealed class PartedPartition(
         disk: PartedDisk
     ) : PartedPartition(disk) {
         override fun close() = pointer.release()
+    }
+
+    companion object {
+        /** Creates a new partition on disk, but does not add the partition to disk's partition table */
+        fun new(
+            disk: PartedDisk,
+            partitionType: PartedPartitionType,
+            filesystemType: PartedFilesystemType,
+            start: Long,
+            end: Long
+        ): Result<Owned> = runCatching {
+            val ptr = PartedBindings.createPartition(
+                disk.pointer,
+                partitionType,
+                filesystemType.pointer,
+                start,
+                end
+            ) ?: throw PartedPartitionException(
+                "Partition creation failed, filesystem=$filesystemType start=$start end=$end"
+            )
+            Owned(ptr, disk)
+        }
     }
 }

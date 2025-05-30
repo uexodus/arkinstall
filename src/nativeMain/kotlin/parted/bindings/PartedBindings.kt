@@ -7,13 +7,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import log.Logger
 import native.libparted.*
-import parted.types.NativePedConstraint
-import parted.types.NativePedDevice
-import parted.types.NativePedDisk
-import parted.types.NativePedDiskType
-import parted.types.NativePedFileSystemType
-import parted.types.NativePedGeometry
-import parted.types.NativePedPartition
+import parted.types.*
 
 /** Bindings for [libparted](https://www.gnu.org/software/parted/api/) */
 @OptIn(ExperimentalForeignApi::class)
@@ -102,15 +96,21 @@ object PartedBindings {
     }
 
     fun createPartition(
-        disk: OwnedSafeCPointer<PedDisk>,
-        type: PedPartitionType,
-        fsType: SafeCPointer<PedFileSystemType>,
+        disk: SafeCPointer<PedDisk>,
+        partitionType: PartedPartitionType,
+        filesystemType: SafeCPointer<PedFileSystemType>,
         start: PedSector,
         end: PedSector
     ): OwnedSafeCPointer<PedPartition>? {
-        val partitionCPointer = disk.immut { diskPtr ->
-            fsType.immut { fsPtr ->
-                ped_partition_new(diskPtr, type, fsPtr, start, end)
+        val partitionCPointer = disk.immut { diskPointer ->
+            filesystemType.immut { filesystemTypePointer ->
+                ped_partition_new(
+                    diskPointer,
+                    partitionType.flags,
+                    filesystemTypePointer,
+                    start,
+                    end
+                )
             }
         } ?: return null
         return fromOwnedPartitionPointer(partitionCPointer)
@@ -121,8 +121,8 @@ object PartedBindings {
         return SafeCPointer.create(ptr, NativePedDiskType::class)
     }
 
-    fun diskAddPartition(
-        disk: OwnedSafeCPointer<PedDisk>,
+    fun addPartition(
+        disk: SafeCPointer<PedDisk>,
         partition: OwnedSafeCPointer<PedPartition>,
         constraint: SafeCPointer<PedConstraint>
     ): Boolean {
@@ -135,28 +135,18 @@ object PartedBindings {
         }
     }
 
-    fun getDeviceConstraint(device: SafeCPointer<PedDevice>): SafeCPointer<PedConstraint>? {
-        val ptr = device.immut { ped_device_get_constraint(it) } ?: return null
-        return SafeCPointer.create(ptr, NativePedConstraint::class)
+    fun fromOwnedConstraintPointer(constraintPointer: CPointer<PedConstraint>): OwnedSafeCPointer<PedConstraint> {
+        return OwnedSafeCPointer.create(constraintPointer, NativePedConstraint::class) {
+            ped_constraint_destroy(it)
+        }
     }
 
-    fun fromOwnedGeometryPointer(geometryCPointer: CPointer<PedGeometry>): OwnedSafeCPointer<PedGeometry> {
-        return OwnedSafeCPointer.create(geometryCPointer, NativePedGeometry::class) {
-            ped_geometry_destroy(it)
-        }
+    fun createDeviceConstraint(device: SafeCPointer<PedDevice>): OwnedSafeCPointer<PedConstraint>? {
+        val ptr = device.immut { ped_device_get_constraint(it) } ?: return null
+        return fromOwnedConstraintPointer(ptr)
     }
 
     fun fromGeometryPointer(geometryCPointer: CPointer<PedGeometry>): SafeCPointer<PedGeometry> {
         return SafeCPointer.create(geometryCPointer, NativePedGeometry::class)
     }
-
-    fun createGeometry(
-        device: SafeCPointer<PedDevice>,
-        start: PedSector,
-        length: PedSector
-    ): OwnedSafeCPointer<PedGeometry>? {
-        val ptr = device.immut { ped_geometry_new(it, start, length) } ?: return null
-        return fromOwnedGeometryPointer(ptr)
-    }
-
 }
