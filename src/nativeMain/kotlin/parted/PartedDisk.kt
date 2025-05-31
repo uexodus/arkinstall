@@ -7,13 +7,13 @@ import cinterop.util.asList
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import native.libparted.PedDisk
-import parted.PartedPartition.Borrowed
 import parted.bindings.PartedBindings
 import parted.exception.PartedDeviceException
 import parted.exception.PartedDiskException
 import parted.exception.PartedPartitionException
 import parted.types.PartedDiskType
 import parted.types.PartedPartitionType
+import parted.validation.DiskBounds
 
 /** A wrapper for a [PedDisk](https://www.gnu.org/software/parted/api/struct__PedDisk.html) object **/
 @OptIn(ExperimentalForeignApi::class)
@@ -25,7 +25,7 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
                 ?.asList(PartedBindings::fromPartitionPointer) { it.pointed.next }
                 ?.map {
                     pointer.addChild(it)
-                    Borrowed(it, this)
+                    PartedPartition.Borrowed(it, this)
                 }
                 ?: listOf()
         }
@@ -42,14 +42,15 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
             )
         }
 
-    /** Commits the in-memory partition table changes to disk and informs the kernel. */
-    fun commit(): Result<Unit> {
-        val success = PartedBindings.commitToDisk(pointer)
+    private val bounds = DiskBounds(device)
 
-        return if (success) {
-            Result.success(Unit)
-        } else {
-            Result.failure(PartedDiskException("Failed to commit changes to device ${device.path}"))
+    /** The size of the disk, excluding 1 MiB at the start & end for reserved sectors */
+    val size = bounds.size
+
+    /** Commits the in-memory partition table changes to disk and informs the kernel. */
+    fun commit(): Result<Unit> = runCatching {
+        if (!PartedBindings.commitToDisk(pointer)) {
+            throw PartedDiskException("Failed to commit changes to device ${device.path}")
         }
     }
 
@@ -59,26 +60,30 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
      * Since this adds the partition object to the partition table, we can no longer free it via
      * `ped_partition_destroy()` as the disk object takes over freeing responsibility
      */
-    fun add(partition: PartedPartition.Owned, constraint: PartedConstraint): Result<Borrowed> = runCatching {
-        val success = PartedBindings.addPartition(
-            pointer,
-            partition.pointer,
-            constraint.pointer
-        )
-
-        if (!success) {
-            throw PartedPartitionException("Failed to add partition to disk ${device.path}")
+    fun add(
+        partition: PartedPartition.Owned,
+        constraint: PartedConstraint
+    ): Result<PartedPartition.Borrowed> = runCatching {
+        bounds.withinBounds(partition).getOrElse {
+            throw PartedDiskException(
+                "${partition.summary()} is not within writable bounds. " +
+                        "Reason: ${it.message}"
+            )
         }
 
-        // retrieve the raw address from the OwnedSafeCPointer wrapper
-        val rawPointer = partition.pointer.immut { it }
-        // release the OwnedSafeCPointer
-        partition.pointer.release()
-        // create a SafeCPointer from the same address
-        val partitionPointer = PartedBindings.fromPartitionPointer(rawPointer)
-        pointer.addChild(partitionPointer)
+        if (bounds.overlapsPartitions(partitions, partition)) {
+            throw PartedDiskException("${partition.summary()} overlaps with an existing partition!")
+        }
 
-        Borrowed(partitionPointer, this)
+        val success = PartedBindings.addPartition(pointer, partition.pointer, constraint.pointer)
+
+        if (!success) {
+            throw PartedPartitionException(
+                "Failed to add ${partition.summary()} to disk ${device.path}."
+            )
+        }
+
+        partition.toBorrowed()
     }
 
     override fun toString(): String = buildString {

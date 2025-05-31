@@ -34,9 +34,9 @@ fun main() {
 
             val constraint = PartedConstraint.fromDevice(device).getOrExit()
 
-            disk.add(partition, constraint)
+            disk.add(partition, constraint).getOrExit()
+            disk.commit().getOrExit()
 
-            disk.commit()
             println("Disk Information:\n$disk\n")
         }
 

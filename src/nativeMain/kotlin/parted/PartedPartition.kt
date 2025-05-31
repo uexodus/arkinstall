@@ -51,6 +51,23 @@ sealed class PartedPartition(
             PartedGeometry.Borrowed(geometryPointer, disk.device)
         }
 
+    /** Returns true if the [other] partition overlaps with this partition */
+    fun overlaps(other: PartedPartition): Boolean {
+        return geometry.start <= other.geometry.end && geometry.end >= other.geometry.start
+    }
+
+    internal fun toBorrowed(): Borrowed {
+        // retrieve the raw address from the OwnedSafeCPointer wrapper
+        val rawPointer = pointer.immut { it }
+        // release the OwnedSafeCPointer
+        pointer.release()
+        // create a SafeCPointer from the same address
+        val partitionPointer = PartedBindings.fromPartitionPointer(rawPointer)
+        disk.pointer.addChild(partitionPointer)
+
+        return Borrowed(partitionPointer, disk)
+    }
+
     override fun toString() = """
         PartedPartition(
             number=$number,
