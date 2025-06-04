@@ -44,12 +44,13 @@ sealed class PartedPartition(
         get() = pointer.immut { PartedPartitionType(it.pointed.type) }
 
     /** The geometry of the partition */
-    val geometry: PartedGeometry
-        get() = pointer.immut {
+    val geometry: PartedGeometry by lazy {
+        pointer.immut {
             val geometryPointer = PartedBindings.fromGeometryPointer(it.pointed.geom.ptr)
             pointer.addChild(geometryPointer)
             PartedGeometry.Borrowed(geometryPointer, disk.device)
         }
+    }
 
     /** Returns true if the [other] partition overlaps with this partition */
     fun overlaps(other: PartedPartition): Boolean {

@@ -3,10 +3,12 @@ package parted
 import cinterop.OwnedSafeCObject
 import cinterop.OwnedSafeCPointer
 import cinterop.SafeCObject
+import cinterop.SafeCPointer
 import cinterop.util.asList
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import native.libparted.PedDisk
+import native.libparted.PedPartition
 import parted.bindings.PartedBindings
 import parted.exception.PartedDeviceException
 import parted.exception.PartedDiskException
@@ -18,6 +20,7 @@ import parted.validation.DiskBounds
 /** A wrapper for a [PedDisk](https://www.gnu.org/software/parted/api/struct__PedDisk.html) object **/
 @OptIn(ExperimentalForeignApi::class)
 sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
+    private val partitionCache = mutableMapOf<SafeCPointer<PedPartition>, PartedPartition>()
 
     private val _partitions: List<PartedPartition>
         get() = pointer.immut { ptr ->
@@ -25,7 +28,9 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
                 ?.asList(PartedBindings::fromPartitionPointer) { it.pointed.next }
                 ?.map {
                     pointer.addChild(it)
-                    PartedPartition.Borrowed(it, this)
+                    partitionCache.getOrPut(it) {
+                        PartedPartition.Borrowed(it, this)
+                    }
                 }
                 ?: listOf()
         }

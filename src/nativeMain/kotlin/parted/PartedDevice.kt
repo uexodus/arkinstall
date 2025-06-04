@@ -11,6 +11,7 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import native.libparted.PedDevice
 import parted.bindings.PartedBindings
+import parted.builder.PartedDiskBuilder
 import parted.exception.PartedDeviceException
 import parted.types.PartedDeviceType
 import parted.types.PartedDiskType
@@ -68,8 +69,8 @@ sealed class PartedDevice : SafeCObject<PedDevice> {
         return PartedDisk.fromDevice(this)
     }
 
-    fun createDisk(type: PartedDiskType): Result<PartedDisk> {
-        return PartedDisk.new(this, type)
+    fun createDisk(type: PartedDiskType, block: PartedDiskBuilder.() -> Unit): Result<PartedDisk> {
+        return PartedDiskBuilder(this, type).apply(block).build()
     }
 
     override fun close() = pointer.close()
