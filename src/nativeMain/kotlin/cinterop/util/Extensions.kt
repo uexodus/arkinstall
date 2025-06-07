@@ -6,12 +6,12 @@ import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 
 @OptIn(ExperimentalForeignApi::class)
-fun <T : CPointed> CPointer<T>.asList(
-    creator: (CPointer<T>) -> SafeCPointer<T>,
+fun <T : CPointed, R : SafeCPointer<T>> CPointer<T>.asList(
+    creator: (CPointer<T>) -> R,
     next: (CPointer<T>) -> CPointer<T>?,
-): List<SafeCPointer<T>> {
-    val result = mutableListOf<SafeCPointer<T>>()
-    var current: SafeCPointer<T>? = creator(this@asList)
+): List<R> {
+    val result = mutableListOf<R>()
+    var current: R? = creator(this@asList)
 
     while (current != null) {
         result.add(current)

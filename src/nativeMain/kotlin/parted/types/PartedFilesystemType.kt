@@ -1,16 +1,20 @@
 package parted.types
 
-import cinterop.SafeCObject
 import cinterop.SafeCPointer
+import cinterop.SafeCPointerFactory
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.pointed
+import kotlinx.cinterop.toKString
 import log.Logger
 import log.logFatal
 import native.libparted.PedFileSystemType
 import parted.bindings.PartedBindings
 import parted.exception.PartedFileSystemTypeException
+import kotlin.reflect.KClass
 
 @OptIn(ExperimentalForeignApi::class)
-enum class PartedFilesystemType(val typeName: String) : SafeCObject<PedFileSystemType> {
+enum class PartedFilesystemType(private val typeName: String) {
     UNKNOWN("unknown"),
     BTRFS("btrfs"),
     EXT2("ext2"),
@@ -23,18 +27,40 @@ enum class PartedFilesystemType(val typeName: String) : SafeCObject<PedFileSyste
     NTFS("ntfs"),
     XFS("xfs");
 
-    override val pointer: SafeCPointer<PedFileSystemType>
-        get() = PartedBindings.getFileSystemTypeByName(typeName)
-            ?: logFatal(logger, PartedFileSystemTypeException("Invalid filesystem type '$typeName'."))
-
-
-    override fun close() = pointer.release()
+    /**
+     * Returns the SafeCPointer for a known [PartedFilesystemType] value.
+     */
+    fun pointer(): SafeCPointer<PedFileSystemType> =
+        PartedBindings.getFileSystemType(typeName)?.let { cPointer ->
+            SafeCPointer.create(cPointer, pointedType)
+        } ?: logFatal(logger, PartedFileSystemTypeException("Invalid filesystem type '$typeName'."))
 
     override fun toString() = typeName
 
-    override fun summary() = typeName
+    companion object : SafeCPointerFactory<PedFileSystemType, NativePedFileSystemType, PartedFilesystemType> {
+        override val pointedType: KClass<NativePedFileSystemType> = NativePedFileSystemType::class
 
-    companion object {
         val logger = Logger(PartedFilesystemType::class)
+        private val nameMap = entries.associateBy { it.typeName }
+
+        /**
+         * Converts a native pointer into a [PartedFilesystemType] enum.
+         */
+        private fun fromPointer(fsType: SafeCPointer<PedFileSystemType>): PartedFilesystemType {
+            val name = fsType.immut { it.pointed.name?.toKString() }
+            val match = nameMap[name] ?: UNKNOWN
+            if (match == UNKNOWN) {
+                logger.d { "Unknown filesystem type '$name', defaulting to UNKNOWN" }
+            }
+            return match
+        }
+
+        override fun createBorrowed(cPointer: CPointer<PedFileSystemType>): PartedFilesystemType {
+            return fromPointer(SafeCPointer.create(cPointer, pointedType))
+        }
+
+        override fun createOwned(cPointer: CPointer<PedFileSystemType>): PartedFilesystemType {
+            logFatal(logger, IllegalStateException("Owned filesystem types do not exist."))
+        }
     }
 }

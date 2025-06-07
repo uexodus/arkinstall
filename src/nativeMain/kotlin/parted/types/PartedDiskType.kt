@@ -1,41 +1,59 @@
 package parted.types
 
-import cinterop.SafeCObject
 import cinterop.SafeCPointer
+import cinterop.SafeCPointerFactory
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import kotlinx.cinterop.toKString
 import log.Logger
+import log.fatal
 import log.logFatal
 import native.libparted.PedDiskType
 import parted.bindings.PartedBindings
 import parted.exception.PartedDiskTypeException
+import kotlin.reflect.KClass
 
 @OptIn(ExperimentalForeignApi::class)
-enum class PartedDiskType(val typeName: String) : SafeCObject<PedDiskType> {
+enum class PartedDiskType(val typeName: String) {
     UNKNOWN("unknown"),
     GPT("gpt"),
     MSDOS("msdos");
 
-    override val pointer: SafeCPointer<PedDiskType>
-        get() = PartedBindings.getDiskTypeByName(typeName)
-            ?: logFatal(logger, PartedDiskTypeException("Invalid disk type '$typeName'."))
+    /**
+     * Returns the SafeCPointer for a known [PartedDiskType] value.
+     */
+    fun pointer(): SafeCPointer<PedDiskType> =
+        PartedBindings.getDiskType(typeName)?.let { cPointer ->
+            SafeCPointer.create(cPointer, pointedType)
+        } ?: logFatal(logger, PartedDiskTypeException("Invalid disk type '$typeName'."))
 
-    override fun close() = pointer.close()
-    override fun summary(): String = typeName
-    override fun toString(): String = typeName
+    override fun toString() = typeName
 
-    companion object {
+    companion object : SafeCPointerFactory<PedDiskType, NativePedDiskType, PartedDiskType> {
+        override val pointedType: KClass<NativePedDiskType> = NativePedDiskType::class
+
         private val logger = Logger(PartedDiskType::class)
         private val nameMap = entries.associateBy { it.typeName }
 
-        fun fromPointer(diskType: SafeCPointer<PedDiskType>?): PartedDiskType {
-            val name = diskType?.immut { it.pointed.name?.toKString() }
+        /**
+         * Converts a native pointer into a [PartedDiskType] enum.
+         */
+        private fun fromPointer(diskType: SafeCPointer<PedDiskType>): PartedDiskType {
+            val name = diskType.immut { it.pointed.name?.toKString() }
             val match = nameMap[name] ?: UNKNOWN
             if (match == UNKNOWN) {
                 logger.d { "Unknown disk type '$name', defaulting to UNKNOWN" }
             }
             return match
+        }
+
+        override fun createBorrowed(cPointer: CPointer<PedDiskType>): PartedDiskType {
+            return fromPointer(SafeCPointer.create(cPointer, pointedType))
+        }
+
+        override fun createOwned(cPointer: CPointer<PedDiskType>): PartedDiskType {
+            fatal(IllegalStateException("Owned disk types do not exist."))
         }
     }
 }

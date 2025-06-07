@@ -28,5 +28,6 @@ class SysLogger(override val logLevel: LogLevel = LogLevel.INFO) : LogBackend {
         if (!isLogOpen) return
         arena.clear()
         isLogOpen = false
+        SyslogBindings.closeLog()
     }
 }

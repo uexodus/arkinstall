@@ -8,8 +8,6 @@ import kotlin.reflect.KClass
  */
 sealed class SafeCPointerException(message: String) : IllegalStateException(message)
 
-private fun SafeCPointer<*>.stateName(): String = state.name.lowercase()
-
 /**
  * Thrown when attempting to use a pointer after it has been freed.
  */
@@ -17,7 +15,7 @@ class UseAfterFreeException(
     pointer: SafeCPointer<*>,
     accessFunction: String
 ) : SafeCPointerException(
-    "Attempted to use $pointer in '$accessFunction' after it was marked as '${pointer.stateName()}'!"
+    "Attempted to use ${pointer.toDebugString()} in '$accessFunction' after it was marked freed/released!"
 )
 
 /**
@@ -26,7 +24,7 @@ class UseAfterFreeException(
 class ReleaseDuringBorrowException(
     pointer: SafeCPointer<*>
 ) : SafeCPointerException(
-    "Cannot release $pointer inside of a immut or mut block!"
+    "Cannot release ${pointer.toDebugString()} inside of a immut or mut block!"
 )
 
 /**
@@ -36,17 +34,7 @@ class InvalidBorrowStateException(
     pointer: SafeCPointer<*>,
     attemptedAccess: String
 ) : SafeCPointerException(
-    "Cannot perform '$attemptedAccess' on $pointer because it is already borrowed!"
-)
-
-/**
- * Thrown when a pointer is registered under conflicting types.
- */
-class PointerRedefinitionException(
-    existing: KClass<*>,
-    attempted: KClass<*>
-) : SafeCPointerException(
-    "Pointer already registered as '${existing.simpleName}' cannot be re-registered as '${attempted.simpleName}'."
+    "Cannot perform '$attemptedAccess' on ${pointer.toDebugString()} because it is already borrowed!"
 )
 
 /**
@@ -56,7 +44,8 @@ class PointedTypeRedefinitionException(
     existing: KClass<*>,
     attempted: KClass<*>
 ) : SafeCPointerException(
-    "Pointed type '${attempted.simpleName}' conflicts with existing type '${existing.simpleName}' in the pointer store."
+    "Pointed type '${attempted.simpleName}' conflicts with existing type '${existing.simpleName}' " +
+            "in the pointer store."
 )
 
 /**
@@ -65,5 +54,5 @@ class PointedTypeRedefinitionException(
 class PointerAlreadyReleasedException(
     pointer: SafeCPointer<*>
 ) : SafeCPointerException(
-    "Cannot add a child to $pointer because it has already been released."
+    "Cannot add a child to ${pointer.toDebugString()} because it has already been released."
 )

@@ -1,7 +1,10 @@
 package log.backends
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.datetime.*
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.io.Buffer
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.writeString
@@ -12,7 +15,7 @@ class FileLogger(override val logLevel: LogLevel = LogLevel.DEBUG) : LogBackend 
     private val channel = Channel<String>(Channel.UNLIMITED)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var job = scope.launch {
-        for (line in channel) writeToFile(line)
+        for (line in channel) appendToFile(line)
     }
 
     override fun log(level: LogLevel, message: String) {
@@ -29,7 +32,7 @@ class FileLogger(override val logLevel: LogLevel = LogLevel.DEBUG) : LogBackend 
         }
     }
 
-    private fun writeToFile(line: String) {
+    private fun appendToFile(line: String) {
         val fs = SystemFileSystem
         val path = LogConfiguration.logFilePath
         val dir = path.parent

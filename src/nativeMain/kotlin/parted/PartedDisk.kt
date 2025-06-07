@@ -1,94 +1,100 @@
 package parted
 
-import cinterop.OwnedSafeCObject
-import cinterop.OwnedSafeCPointer
-import cinterop.SafeCObject
+import base.Summarisable
 import cinterop.SafeCPointer
+import cinterop.SafeCPointerFactory
+import cinterop.SafeCPointerRegistry
 import cinterop.util.asList
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import native.libparted.PedDisk
-import native.libparted.PedPartition
 import parted.bindings.PartedBindings
 import parted.exception.PartedDeviceException
 import parted.exception.PartedDiskException
 import parted.exception.PartedPartitionException
+import parted.types.NativePedDisk
 import parted.types.PartedDiskType
 import parted.types.PartedPartitionType
 import parted.validation.DiskBounds
+import unit.Size
 
-/** A wrapper for a [PedDisk](https://www.gnu.org/software/parted/api/struct__PedDisk.html) object **/
 @OptIn(ExperimentalForeignApi::class)
-sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
-    private val partitionCache = mutableMapOf<SafeCPointer<PedPartition>, PartedPartition>()
+class PartedDisk private constructor(
+    cPointer: CPointer<PedDisk>,
+    destroyer: ((CPointer<PedDisk>) -> Unit)? = null
+) : SafeCPointer<PedDisk>(cPointer, destroyer), Summarisable {
 
-    private val _partitions: List<PartedPartition>
-        get() = pointer.immut { ptr ->
-            ptr.pointed.part_list
-                ?.asList(PartedBindings::fromPartitionPointer) { it.pointed.next }
-                ?.map {
-                    pointer.addChild(it)
-                    partitionCache.getOrPut(it) {
-                        PartedPartition.Borrowed(it, this)
-                    }
-                }
-                ?: listOf()
-        }
-
-    /** A linked list of partitions in this disk */
-    val partitions: List<PartedPartition>
-        get() = _partitions.filter { it.type.has(PartedPartitionType.NORMAL) }
-
-    /** Returns the disk label type */
-    val type: PartedDiskType
-        get() = pointer.immut { ptr ->
-            PartedDiskType.fromPointer(
-                ptr.pointed.type?.let { PartedBindings.fromDiskTypePointer(it) }
-            )
-        }
+    val device: PartedDevice
+        get() = immut { PartedDevice.createBorrowed(it.pointed.dev!!) }
 
     private val bounds = DiskBounds(device)
 
-    /** The size of the disk, excluding 1 MiB at the start & end for reserved sectors */
-    val size = bounds.size
+    /** All partitions linked to this disk. */
+    val partitions: List<PartedPartition>
+        get() = immut { ptr ->
+            val rawList = ptr.pointed.part_list
+                ?: return@immut emptyList()
 
-    /** Commits the in-memory partition table changes to disk and informs the kernel. */
+            val partitions = rawList.asList(PartedPartition::createBorrowed) { it.pointed.next }
+
+            partitions.forEach { addChild(it) }
+
+            partitions.filter { it.type.has(PartedPartitionType.NORMAL) }
+        }
+
+
+    /** The disk label type (e.g. msdos, gpt) */
+    val type: PartedDiskType
+        get() = immut {
+            it.pointed.type
+                ?.let { type -> PartedDiskType.createBorrowed(type) }
+                ?: PartedDiskType.UNKNOWN
+        }
+
+    /** The usable size of the disk, excluding reserved sectors */
+    val size: Size = bounds.size
+
+    /** Commit in-memory partition table to disk */
     fun commit(): Result<Unit> = runCatching {
-        if (!PartedBindings.commitToDisk(pointer)) {
+        val success = immut { PartedBindings.commitDisk(it) }
+
+        if (!success) {
             throw PartedDiskException("Failed to commit changes to device ${device.path}")
         }
     }
 
-    /** Adds a partition the partition table.
-     * Do not use the passed [partition] object afterward - use the returned object
-     *
-     * Since this adds the partition object to the partition table, we can no longer free it via
-     * `ped_partition_destroy()` as the disk object takes over freeing responsibility
+    /**
+     * Add a new partition to the disk.
+     * You must discard the original partition (ownership is transferred).
      */
     fun add(
-        partition: PartedPartition.Owned,
+        partition: PartedPartition,
         constraint: PartedConstraint
-    ): Result<PartedPartition.Borrowed> = runCatching {
+    ): Result<PartedPartition> = runCatching {
         bounds.withinBounds(partition).getOrElse {
-            throw PartedDiskException(
-                "${partition.summary()} is not within writable bounds. " +
-                        "Reason: ${it.message}"
-            )
+            throw PartedDiskException("${partition.summary()} is not within writable bounds. Reason: ${it.message}")
         }
 
         if (bounds.overlapsPartitions(partitions, partition)) {
             throw PartedDiskException("${partition.summary()} overlaps with an existing partition!")
         }
 
-        val success = PartedBindings.addPartition(pointer, partition.pointer, constraint.pointer)
-
-        if (!success) {
-            throw PartedPartitionException(
-                "Failed to add ${partition.summary()} to disk ${device.path}."
-            )
+        val success = mut { disk ->
+            partition.immut { part ->
+                constraint.immut { constraint ->
+                    PartedBindings.addPartition(disk, part, constraint)
+                }
+            }
         }
 
-        partition.toBorrowed()
+        if (!success) {
+            throw PartedPartitionException("Failed to add ${partition.summary()} to disk ${device.path}.")
+        }
+
+        // Ownership of the pointer is now managed by the disk.
+        partition.demoteToBorrowed()
+        partition
     }
 
     override fun toString(): String = buildString {
@@ -96,41 +102,47 @@ sealed class PartedDisk(val device: PartedDevice) : SafeCObject<PedDisk> {
         appendLine("    device=${device.path}")
         appendLine("    type=${type}")
         appendLine("    partitions=[")
-        partitions.forEach { partition ->
-            appendLine("        ${partition.summary()}")
-        }
+        partitions.forEach { partition -> appendLine("        ${partition.summary()}") }
         appendLine("    ]")
         append(")")
     }
 
-    override fun summary(): String = "PartedDisk(device=${device.path}, type=${type}, partitions=${partitions.count()})"
+    override fun summary(): String = "PartedDisk(device=${device.path}, type=${type}, partitions=${partitions.size})"
 
-    class Owned(
-        override val pointer: OwnedSafeCPointer<PedDisk>,
-        device: PartedDevice
-    ) : PartedDisk(device), OwnedSafeCObject<PedDisk> {
-        override fun close() = pointer.free()
-    }
+    companion object : SafeCPointerFactory<PedDisk, NativePedDisk, PartedDisk> {
+        override val pointedType = NativePedDisk::class
 
-    companion object {
-        /** Retrieves the disk associated with the given device, if a partition table exists. */
-        fun fromDevice(device: PartedDevice): Result<Owned> = runCatching {
-            val diskPointer = PartedBindings.getDisk(device.pointer)
-                ?: throw PartedDeviceException("No disk detected on device: ${device.summary()}")
+        /** Retrieve the current disk structure on the device */
+        fun fromDevice(device: PartedDevice): Result<PartedDisk> = runCatching {
+            val diskPointer = device.immut { dev ->
+                PartedBindings.getDisk(dev)
+                    ?: throw PartedDeviceException("No disk detected on device: ${device.summary()}")
+            }
 
-            device.pointer.addChild(diskPointer)
-            Owned(diskPointer, device)
+            createOwned(diskPointer).also { device.addChild(it) }
         }
 
-        /** Creates a partition table of the given [type] on the [device] */
-        fun new(device: PartedDevice, type: PartedDiskType) = runCatching {
-            val diskPointer = PartedBindings.createDisk(device.pointer, type.pointer)
-                ?: throw PartedDeviceException(
-                    "Failed to create partition table on device: ${device.summary()}"
-                )
+        /** Create a new partition table on the device */
+        fun new(device: PartedDevice, type: PartedDiskType): Result<PartedDisk> = runCatching {
+            val diskPointer = device.immut { dev ->
+                type.pointer().immut { diskType ->
+                    PartedBindings.createDisk(dev, diskType)
+                }
+            } ?: throw PartedDeviceException("Failed to create partition table on device: ${device.summary()}")
 
-            device.pointer.addChild(diskPointer)
-            Owned(diskPointer, device)
+            createOwned(diskPointer).also { device.addChild(it) }
+        }
+
+        override fun createBorrowed(cPointer: CPointer<PedDisk>): PartedDisk {
+            return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
+                PartedDisk(cPointer)
+            }
+        }
+
+        override fun createOwned(cPointer: CPointer<PedDisk>): PartedDisk {
+            return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
+                PartedDisk(cPointer) { PartedBindings.destroyDisk(it) }
+            }
         }
     }
 }

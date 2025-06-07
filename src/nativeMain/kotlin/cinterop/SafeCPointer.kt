@@ -4,7 +4,9 @@ import cinterop.exceptions.InvalidBorrowStateException
 import cinterop.exceptions.PointerAlreadyReleasedException
 import cinterop.exceptions.ReleaseDuringBorrowException
 import cinterop.exceptions.UseAfterFreeException
-import kotlinx.cinterop.*
+import kotlinx.cinterop.CPointed
+import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.ExperimentalForeignApi
 import log.Logger
 import log.logFatal
 import kotlin.reflect.KClass
@@ -12,19 +14,10 @@ import kotlin.reflect.KClass
 /**
  * A safe wrapper around a native [CPointer], enforcing Rust-like borrow rules at runtime.
  *
- * This class does **not** take ownership of the pointer it wraps.
- *
- * It assumes that the pointer is managed externally, usually by a C library or a Kotlin [AutofreeScope].
- * As such, [SafeCPointer] does **not** support memory freeing. If you need to manually free memory,
- * use [OwnedSafeCPointer], which accepts a free lambda.
- *
- * ### Purpose
- * Kotlin/Native interop with C exposes raw pointers that are inherently unsafe:
- * - They can be used after being freed.
- * - Multiple mutable accesses can lead to undefined behavior.
- * - There is no compiler-level enforcement of pointer lifetimes or exclusivity.
- *
- * This class provides a Rust-like runtime borrow-checking system to attempt to mitigate these risks
+ * ### Terminology
+ * A [SafeCPointer] can be either owned or borrowed:
+ *  - Owned: A pointer where we are directly responsible for freeing.
+ *  - Borrowed: A pointer where freeing responsibility is delegated to something else.
  *
  * ### Pointer states
  * At any given time, a [SafeCPointer] can have one of several [PointerState]:
@@ -32,7 +25,7 @@ import kotlin.reflect.KClass
  * - [PointerState.IMMUTABLY_BORROWED]: temporarily locked for read-only access.
  * - [PointerState.MUTABLY_BORROWED] temporarily locked for exclusive write access.
  * - [PointerState.RELEASED]: inaccessible but not freed.
- * - [PointerState.FREED]: freed and inaccessible. See [OwnedSafeCPointer] for freeing
+ * - [PointerState.FREED]: freed and inaccessible.
  *
  * Borrowing is always done through scoped lambdas.
  *
@@ -67,21 +60,21 @@ import kotlin.reflect.KClass
  * ```
  */
 @OptIn(ExperimentalForeignApi::class)
-open class SafeCPointer<T : CPointed> protected constructor(protected val cPointer: CPointer<T>) : AutoCloseable {
+open class SafeCPointer<T : CPointed> protected constructor(
+    private val cPointer: CPointer<T>,
+    private var destroyer: ((CPointer<T>) -> Unit)? = null
+) : AutoCloseable {
     private val logger = Logger(SafeCPointer::class)
 
     /**
-     * The pointer from which this pointer was derived, or null if this is a root.
+     * The pointer from which this pointer was derived, or null if it's a root pointer
      */
-    var parent: SafeCPointer<*>? = null
-        protected set
-
-    private val _children = mutableSetOf<SafeCPointer<*>>()
+    private var parent: SafeCPointer<*>? = null
 
     /**
      * All pointers that were derived from this pointer
      */
-    val children: Set<SafeCPointer<*>> get() = _children.toSet()
+    private val children = mutableSetOf<SafeCPointer<*>>()
 
     /**
      * The current [PointerState] of this pointer
@@ -89,8 +82,11 @@ open class SafeCPointer<T : CPointed> protected constructor(protected val cPoint
     var state: PointerState = PointerState.ACTIVE
         protected set
 
+    /** Whether this pointer's native memory should be freed by us or not */
+    val isOwned: Boolean get() = destroyer != null
+
     /**
-     * True if the pointer has been freed via [OwnedSafeCPointer.free]
+     * True if the pointer has been freed via [free]
      */
     val isFreed get() = state == PointerState.FREED
 
@@ -156,24 +152,63 @@ open class SafeCPointer<T : CPointed> protected constructor(protected val cPoint
      *
      * @throws ReleaseDuringBorrowException if the pointer is currently borrowed.
      */
-    open fun release() {
-        if (isReleased) {
-            logger.d { "Avoided release on released pointer $this" }
+    fun release() {
+        if (isDead) {
+            logger.d { "Avoided release on pointer ${toDebugString()}" }
             return
         }
 
         if (isBorrowed) logFatal(logger, ReleaseDuringBorrowException(this))
 
-        for (child in _children.toList()) {
+        for (child in children.toList()) {
             child.release()
         }
 
         parent?.removeChild(this)
         state = PointerState.RELEASED
-        logger.d { "Pointer released $this" }
+        logger.d { "Pointer released ${toDebugString()}" }
 
         SafeCPointerRegistry.forget(cPointer)
     }
+
+    /**
+     * Frees this pointer and all of its children, recursively.
+     * After calling this, the pointer enters the [PointerState.FREED] state.
+     *
+     * - Any child that is owned will be freed.
+     * - Any child that is borrowed will be released.
+     * - All freed/released pointers are removed from the [SafeCPointerRegistry].
+     *
+     * @throws ReleaseDuringBorrowException if the pointer is currently borrowed.
+     */
+    fun free() {
+        if (!isOwned) {
+            logger.i { "Tried to free borrowed pointer, releasing instead ${toDebugString()}" }
+            release()
+            return
+        }
+
+        if (isDead) {
+            logger.d { "Avoided free on pointer ${toDebugString()}" }
+            return
+        }
+
+        if (isBorrowed) logFatal(logger, ReleaseDuringBorrowException(this))
+
+        for (child in children.toList()) {
+            child.close()
+        }
+
+        try {
+            destroyer!!.invoke(cPointer)
+        } finally {
+            parent?.removeChild(this)
+            state = PointerState.FREED
+            logger.d { "Pointer freed ${toDebugString()}" }
+            SafeCPointerRegistry.forget(cPointer)
+        }
+    }
+
 
     /**
      * Registers one or more [child] pointers derived from this pointer.
@@ -181,44 +216,54 @@ open class SafeCPointer<T : CPointed> protected constructor(protected val cPoint
      *
      * @throws PointerAlreadyReleasedException if this pointer has already been released.
      */
-    fun addChild(vararg child: SafeCPointer<*>) {
-        logger.d { "Adding child(ren) to $this: ${child.joinToString()}" }
+    internal fun addChild(vararg child: SafeCPointer<*>) {
+        logger.d { "Adding child(ren) to ${toDebugString()}: ${child.joinToString { it.toDebugString() }}" }
         if (isReleased) logFatal(logger, PointerAlreadyReleasedException(this))
 
         for (c in child) {
-            _children.add(c)
+            children.add(c)
             c.parent = this
         }
     }
 
     /**
      * Unregisters a previously added [child] pointer.
-     * The child is removed from this pointer’s [_children] set, and its [parent] reference is cleared.
+     * The child is removed from this pointer’s [children] set, and its [parent] reference is cleared.
      */
-    fun removeChild(child: SafeCPointer<*>) {
-        _children.remove(child)
+    internal fun removeChild(child: SafeCPointer<*>) {
+        children.remove(child)
         child.parent = null
-        logger.d { "Child removed $child from parent $this" }
+        logger.d { "Removed child ${child.toDebugString()} from ${toDebugString()}" }
+    }
+
+    internal fun demoteToBorrowed() {
+        destroyer = null
     }
 
     override fun close() {
-        release()
+        if (isOwned) free() else release()
     }
 
-    override fun toString(): String {
-        return "${this::class.simpleName}(${cPointer.rawValue}, $state)"
-    }
+    fun toDebugString(): String = "${this::class.simpleName}@${cPointer.rawValue} [$state]"
 
     companion object {
         /**
          * Retrieves an existing [SafeCPointer] instance for the given [cPointer] from the registry,
          * or creates and registers a new one if not present.
          */
-        fun <T : CPointed, N : NativeType<T>> create(cPointer: CPointer<T>, klass: KClass<N>): SafeCPointer<T> {
-            return SafeCPointerRegistry.getOrCreateSafeCPointer(cPointer, klass) {
-                SafeCPointer(cPointer)
+        fun <T : CPointed, N : NativeType<T>> create(
+            cPointer: CPointer<T>,
+            klass: KClass<N>,
+            free: ((CPointer<T>) -> Unit)? = null
+        ): SafeCPointer<T> =
+            SafeCPointerRegistry.getOrCreate(cPointer, klass) {
+                SafeCPointer(cPointer, free)
             }
-        }
+
+        inline fun <reified T : CPointed, reified N : NativeType<T>> create(
+            cPointer: CPointer<T>,
+            noinline free: ((CPointer<T>) -> Unit)? = null
+        ): SafeCPointer<T> = create(cPointer, N::class, free)
     }
 }
 

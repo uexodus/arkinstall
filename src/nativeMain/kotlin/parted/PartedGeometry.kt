@@ -1,29 +1,38 @@
 package parted
 
-import cinterop.OwnedSafeCObject
-import cinterop.OwnedSafeCPointer
-import cinterop.SafeCObject
+import base.Summarisable
 import cinterop.SafeCPointer
+import cinterop.SafeCPointerFactory
+import cinterop.SafeCPointerRegistry
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import native.libparted.PedGeometry
+import parted.bindings.PartedBindings
+import parted.types.NativePedGeometry
 import unit.Size
 
 /** A basic wrapper for a [PedGeometry](https://www.gnu.org/software/parted/api/group__PedGeometry.html) object */
 @OptIn(ExperimentalForeignApi::class)
-sealed class PartedGeometry(val device: PartedDevice) : SafeCObject<PedGeometry> {
+class PartedGeometry private constructor(
+    cPointer: CPointer<PedGeometry>,
+    destroyer: ((CPointer<PedGeometry>) -> Unit)? = null
+) : SafeCPointer<PedGeometry>(cPointer, destroyer), Summarisable {
+
+    val device: PartedDevice
+        get() = immut { PartedDevice.createBorrowed(it.pointed.dev!!) }
 
     /** The sector the geometry starts at */
     val start: Long
-        get() = pointer.immut { it.pointed.start }
+        get() = immut { it.pointed.start }
 
     /** The sector the geometry ends at */
     val end: Long
-        get() = pointer.immut { it.pointed.end }
+        get() = immut { it.pointed.end }
 
     /** The length of the geometry in sectors */
     val length: Long
-        get() = pointer.immut { it.pointed.length }
+        get() = immut { it.pointed.length }
 
     /** The size of the geometry in bytes */
     val size: Size
@@ -41,17 +50,19 @@ sealed class PartedGeometry(val device: PartedDevice) : SafeCObject<PedGeometry>
         )
     """.trimIndent()
 
-    class Owned(
-        override val pointer: OwnedSafeCPointer<PedGeometry>,
-        device: PartedDevice
-    ) : PartedGeometry(device), OwnedSafeCObject<PedGeometry> {
-        override fun close() = pointer.free()
-    }
+    companion object : SafeCPointerFactory<PedGeometry, NativePedGeometry, PartedGeometry> {
+        override val pointedType = NativePedGeometry::class
 
-    class Borrowed(
-        override val pointer: SafeCPointer<PedGeometry>,
-        device: PartedDevice
-    ) : PartedGeometry(device) {
-        override fun close() = pointer.release()
+        override fun createOwned(cPointer: CPointer<PedGeometry>): PartedGeometry {
+            return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
+                PartedGeometry(cPointer) { geom -> PartedBindings.destroyGeometry(geom) }
+            }
+        }
+
+        override fun createBorrowed(cPointer: CPointer<PedGeometry>): PartedGeometry {
+            return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
+                PartedGeometry(cPointer)
+            }
+        }
     }
 }
