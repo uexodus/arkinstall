@@ -1,7 +1,7 @@
 package cinterop.types
 
 abstract class BitFlag(val flags: UInt) {
-    abstract val knownFlags: Map<BitFlag, String>
+    open val knownFlags: Map<BitFlag, String> by lazy { emptyMap() }
 
     fun has(flag: BitFlag): Boolean = flags == flag.flags || flags and flag.flags != 0u
 

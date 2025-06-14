@@ -13,7 +13,7 @@ import kotlinx.io.files.SystemFileSystem
 import native.libparted.PedDevice
 import parted.bindings.PartedBindings
 import parted.builder.PartedDiskBuilder
-import parted.exception.PartedDeviceException
+import parted.exception.PedDeviceException
 import parted.types.NativePedDevice
 import parted.types.PartedDeviceType
 import parted.types.PartedDiskType
@@ -45,12 +45,12 @@ class PartedDevice private constructor(
         get() = immut { it.pointed.open_count }
 
     /** Description of hardware (manufacturer, model) for the block device. */
-    val model: String?
-        get() = immut { it.pointed.model?.toKString() }
+    val model: String
+        get() = immut { it.pointed.model?.toKString() ?: "" }
 
     /** /dev entry for the block device. */
-    val path: String?
-        get() = immut { it.pointed.path?.toKString() }
+    val path: String
+        get() = immut { it.pointed.path?.toKString() ?: "" }
 
     /** Physical sector size, in bytes */
     val physicalSectorSize: Size
@@ -73,7 +73,8 @@ class PartedDevice private constructor(
     }
 
     fun createDisk(type: PartedDiskType, block: PartedDiskBuilder.() -> Unit): Result<PartedDisk> {
-        return PartedDiskBuilder(this, type).apply(block).build()
+        return PartedDiskBuilder(this, type)
+            .apply(block).build()
     }
 
     override fun toString(): String = """
@@ -91,7 +92,7 @@ class PartedDevice private constructor(
     """.trimIndent()
 
     override fun summary(): String {
-        return "PartedDevice(path=${path ?: "Unknown"}, model=${model ?: "Unknown"}, size=$size)"
+        return "PartedDevice(path=${path}, model=${model}, size=$size)"
     }
 
     companion object : SafeCPointerFactory<PedDevice, NativePedDevice, PartedDevice> {
@@ -103,11 +104,12 @@ class PartedDevice private constructor(
 
             val devicePath = Path(path)
             if (!SystemFileSystem.exists(devicePath)) {
-                throw PartedDeviceException("Device not found at path $path")
+                throw PedDeviceException("Device not found at path $path")
             }
 
+            println("Getting device from path $devicePath")
+
             val cPointer = PartedBindings.getDevice(path)
-                ?: throw PartedDeviceException("Failed to open device at path $path")
 
             createOwned(cPointer)
         }

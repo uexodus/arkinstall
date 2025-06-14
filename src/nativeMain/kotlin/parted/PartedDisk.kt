@@ -10,9 +10,8 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import native.libparted.PedDisk
 import parted.bindings.PartedBindings
-import parted.exception.PartedDeviceException
-import parted.exception.PartedDiskException
-import parted.exception.PartedPartitionException
+import parted.exception.PedDiskException
+import parted.exception.PedPartitionException
 import parted.types.NativePedDisk
 import parted.types.PartedDiskType
 import parted.types.PartedPartitionType
@@ -57,10 +56,10 @@ class PartedDisk private constructor(
 
     /** Commit in-memory partition table to disk */
     fun commit(): Result<Unit> = runCatching {
-        val success = immut { PartedBindings.commitDisk(it) }
+        val success = PartedBindings.commitDisk(this)
 
         if (!success) {
-            throw PartedDiskException("Failed to commit changes to device ${device.path}")
+            throw PedDiskException("Failed to commit changes to device ${device.path}")
         }
     }
 
@@ -73,23 +72,17 @@ class PartedDisk private constructor(
         constraint: PartedConstraint
     ): Result<PartedPartition> = runCatching {
         bounds.withinBounds(partition).getOrElse {
-            throw PartedDiskException("${partition.summary()} is not within writable bounds. Reason: ${it.message}")
+            throw PedDiskException("${partition.summary()} is not within writable bounds. ${it.message}")
         }
 
         if (bounds.overlapsPartitions(partitions, partition)) {
-            throw PartedDiskException("${partition.summary()} overlaps with an existing partition!")
+            throw PedDiskException("${partition.summary()} overlaps with an existing partition!")
         }
 
-        val success = mut { disk ->
-            partition.immut { part ->
-                constraint.immut { constraint ->
-                    PartedBindings.addPartition(disk, part, constraint)
-                }
-            }
-        }
+        val success = PartedBindings.addPartition(this, partition, constraint)
 
         if (!success) {
-            throw PartedPartitionException("Failed to add ${partition.summary()} to disk ${device.path}.")
+            throw PedPartitionException("Failed to add ${partition.summary()} to disk ${device.path}.")
         }
 
         // Ownership of the pointer is now managed by the disk.
@@ -112,23 +105,16 @@ class PartedDisk private constructor(
     companion object : SafeCPointerFactory<PedDisk, NativePedDisk, PartedDisk> {
         override val pointedType = NativePedDisk::class
 
-        /** Retrieve the current disk structure on the device */
+        /** Retrieve the current disk on the device */
         fun fromDevice(device: PartedDevice): Result<PartedDisk> = runCatching {
-            val diskPointer = device.immut { dev ->
-                PartedBindings.getDisk(dev)
-                    ?: throw PartedDeviceException("No disk detected on device: ${device.summary()}")
-            }
+            val diskPointer = PartedBindings.getDisk(device)
 
             createOwned(diskPointer).also { device.addChild(it) }
         }
 
         /** Create a new partition table on the device */
         fun new(device: PartedDevice, type: PartedDiskType): Result<PartedDisk> = runCatching {
-            val diskPointer = device.immut { dev ->
-                type.pointer().immut { diskType ->
-                    PartedBindings.createDisk(dev, diskType)
-                }
-            } ?: throw PartedDeviceException("Failed to create partition table on device: ${device.summary()}")
+            val diskPointer = PartedBindings.createDisk(device, type)
 
             createOwned(diskPointer).also { device.addChild(it) }
         }

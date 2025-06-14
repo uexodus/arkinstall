@@ -10,7 +10,6 @@ import log.Logger
 import log.logFatal
 import native.libparted.PedFileSystemType
 import parted.bindings.PartedBindings
-import parted.exception.PartedFileSystemTypeException
 import kotlin.reflect.KClass
 
 @OptIn(ExperimentalForeignApi::class)
@@ -31,9 +30,9 @@ enum class PartedFilesystemType(private val typeName: String) {
      * Returns the SafeCPointer for a known [PartedFilesystemType] value.
      */
     fun pointer(): SafeCPointer<PedFileSystemType> =
-        PartedBindings.getFileSystemType(typeName)?.let { cPointer ->
+        PartedBindings.getFileSystemType(typeName).let { cPointer ->
             SafeCPointer.create(cPointer, pointedType)
-        } ?: logFatal(logger, PartedFileSystemTypeException("Invalid filesystem type '$typeName'."))
+        }
 
     override fun toString() = typeName
 
@@ -50,7 +49,7 @@ enum class PartedFilesystemType(private val typeName: String) {
             val name = fsType.immut { it.pointed.name?.toKString() }
             val match = nameMap[name] ?: UNKNOWN
             if (match == UNKNOWN) {
-                logger.d { "Unknown filesystem type '$name', defaulting to UNKNOWN" }
+                logger.i { "Unknown filesystem type '$name', defaulting to UNKNOWN" }
             }
             return match
         }

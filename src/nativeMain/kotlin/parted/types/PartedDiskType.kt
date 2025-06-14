@@ -8,10 +8,8 @@ import kotlinx.cinterop.pointed
 import kotlinx.cinterop.toKString
 import log.Logger
 import log.fatal
-import log.logFatal
 import native.libparted.PedDiskType
 import parted.bindings.PartedBindings
-import parted.exception.PartedDiskTypeException
 import kotlin.reflect.KClass
 
 @OptIn(ExperimentalForeignApi::class)
@@ -24,9 +22,9 @@ enum class PartedDiskType(val typeName: String) {
      * Returns the SafeCPointer for a known [PartedDiskType] value.
      */
     fun pointer(): SafeCPointer<PedDiskType> =
-        PartedBindings.getDiskType(typeName)?.let { cPointer ->
+        PartedBindings.getDiskType(typeName).let { cPointer ->
             SafeCPointer.create(cPointer, pointedType)
-        } ?: logFatal(logger, PartedDiskTypeException("Invalid disk type '$typeName'."))
+        }
 
     override fun toString() = typeName
 

@@ -8,7 +8,6 @@ import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import native.libparted.PedConstraint
 import parted.bindings.PartedBindings
-import parted.exception.PartedConstraintException
 import parted.types.NativePedConstraint
 
 @OptIn(ExperimentalForeignApi::class)
@@ -25,8 +24,7 @@ class PartedConstraint private constructor(
         override val pointedType = NativePedConstraint::class
 
         fun fromDevice(device: PartedDevice) = runCatching {
-            val constraintPointer = device.immut { dev -> PartedBindings.constraintFromDevice(dev) }
-                ?: throw PartedConstraintException("Failed to get constraint from device: $device")
+            val constraintPointer = PartedBindings.constraintFromDevice(device)
 
             createOwned(constraintPointer)
         }

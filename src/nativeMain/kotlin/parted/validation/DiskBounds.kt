@@ -6,7 +6,7 @@ import unit.MiB
 import unit.Size
 
 class DiskBounds(
-    val device: PartedDevice,
+    device: PartedDevice,
     reservedStart: Size = 1L.MiB,
     reservedEnd: Size = 1L.MiB
 ) {
@@ -18,9 +18,17 @@ class DiskBounds(
         val proposedStart = partition.geometry.start
         val proposedEnd = partition.geometry.end
 
-        require(proposedStart >= start) { "Proposed start $proposedStart < allowed start $start" }
-        require(proposedEnd <= end) { "Proposed end $proposedEnd > allowed end $end" }
-        require(proposedStart < proposedEnd) { "Proposed end $proposedEnd <= start $proposedStart" }
+        require(proposedStart >= start) {
+            "Invalid partition start: proposed start ($proposedStart) is before allowed start ($start)"
+        }
+
+        require(proposedEnd <= end) {
+            "Invalid partition end: proposed end ($proposedEnd) exceeds allowed end ($end)"
+        }
+
+        require(proposedStart < proposedEnd) {
+            "Invalid partition range: proposed end ($proposedEnd) must be greater than proposed start ($proposedStart)"
+        }
     }
 
     fun overlapsPartitions(partitions: List<PartedPartition>, partition: PartedPartition): Boolean {

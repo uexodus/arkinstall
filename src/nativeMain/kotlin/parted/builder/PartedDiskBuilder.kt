@@ -48,7 +48,7 @@ class PartedDiskBuilder(
     }
 
     fun build(): Result<PartedDisk> = runCatching {
-        val disk = PartedDisk.new(device, diskType).getOrElse { throw it }
+        val disk = PartedDisk.new(device, diskType).getOrThrow()
 
         val sectorSize = device.logicalSectorSize
         var start = bounds.start
@@ -60,13 +60,11 @@ class PartedDiskBuilder(
             val draft = PartedPartition.new(
                 disk, PartedPartitionType.NORMAL,
                 config.filesystemType, start, end
-            ).getOrElse { throw it }
+            ).getOrThrow()
 
-            val constraint = PartedConstraint.fromDevice(disk.device)
-                .getOrElse { throw it }
+            val constraint = PartedConstraint.fromDevice(disk.device).getOrThrow()
 
-            disk.add(draft, constraint)
-                .getOrElse { throw it }
+            disk.add(draft, constraint).getOrThrow()
 
             start = end + 1
         }

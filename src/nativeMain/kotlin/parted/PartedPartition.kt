@@ -10,7 +10,6 @@ import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
 import native.libparted.PedPartition
 import parted.bindings.PartedBindings
-import parted.exception.PartedPartitionException
 import parted.types.NativePedPartition
 import parted.types.PartedFilesystemType
 import parted.types.PartedPartitionType
@@ -84,21 +83,15 @@ class PartedPartition private constructor(
             start: Long,
             end: Long
         ): Result<PartedPartition> = runCatching {
-            val cPointer = disk.immut { diskPointer ->
-                filesystemType.pointer().immut { fsType ->
-                    PartedBindings.createPartition(
-                        diskPointer,
-                        partitionType.flags,
-                        fsType,
-                        start,
-                        end
-                    )
-                }
-            } ?: throw PartedPartitionException(
-                "Partition creation failed, filesystem=$filesystemType start=$start end=$end"
+            val cPointer = PartedBindings.createPartition(
+                disk,
+                partitionType,
+                filesystemType,
+                start,
+                end
             )
 
-            PartedPartition(cPointer)
+            createOwned(cPointer)
         }
 
         override fun createBorrowed(cPointer: CPointer<PedPartition>): PartedPartition {

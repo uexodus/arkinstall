@@ -2,13 +2,7 @@ package parted.types
 
 import cinterop.NativeType
 import kotlinx.cinterop.ExperimentalForeignApi
-import native.libparted.PedConstraint
-import native.libparted.PedDevice
-import native.libparted.PedDisk
-import native.libparted.PedDiskType
-import native.libparted.PedFileSystemType
-import native.libparted.PedGeometry
-import native.libparted.PedPartition
+import native.libparted.*
 
 @OptIn(ExperimentalForeignApi::class)
 object NativePedDisk : NativeType<PedDisk>
@@ -30,3 +24,6 @@ object NativePedConstraint : NativeType<PedConstraint>
 
 @OptIn(ExperimentalForeignApi::class)
 object NativePedGeometry : NativeType<PedGeometry>
+
+@OptIn(ExperimentalForeignApi::class)
+object NativePedException : NativeType<PedException>
