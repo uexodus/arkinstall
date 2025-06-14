@@ -13,12 +13,12 @@ class SysLogger(override val logLevel: LogLevel = LogLevel.INFO) : LogBackend {
 
     override fun log(level: LogLevel, message: String) {
         if (level > logLevel) return
-        if (!isLogOpen) initialize()
+        if (!isLogOpen) initialise()
 
         SyslogBindings.systemLog(level.ordinal, message)
     }
 
-    private fun initialize() {
+    private fun initialise() {
         identityPointer = LogConfiguration.PROGRAM_NAME.cstr.getPointer(arena)
         SyslogBindings.openLog(identityPointer)
         isLogOpen = true
