@@ -4,18 +4,30 @@ import kotlinx.cinterop.*
 import log.LogConfiguration
 import log.bindings.SyslogBindings
 import log.types.LogLevel
+import kotlin.reflect.KClass
 
 @OptIn(ExperimentalForeignApi::class)
-class SysLogger(override val logLevel: LogLevel = LogLevel.INFO) : LogBackend {
+class SysLogger(override val logLevel: LogLevel) : LogBackend {
     private val arena = Arena()
     private var isLogOpen = false
     private lateinit var identityPointer: CPointer<ByteVar>
 
-    override fun log(level: LogLevel, message: String) {
+    override fun log(level: LogLevel, module: KClass<*>, message: String) {
         if (level > logLevel) return
         if (!isLogOpen) initialise()
 
-        SyslogBindings.systemLog(level.ordinal, message)
+        val logMessage = "${module.simpleName} - $message"
+
+        SyslogBindings.systemLog(level.ordinal, logMessage)
+    }
+
+    override fun error(module: KClass<*>, exception: KClass<*>, message: String) {
+        if (LogLevel.ERROR > logLevel) return
+        if (!isLogOpen) initialise()
+
+        val logMessage = "${module.simpleName} - [${exception.simpleName}] $message"
+
+        SyslogBindings.systemLog(LogLevel.ERROR.ordinal, logMessage)
     }
 
     private fun initialise() {

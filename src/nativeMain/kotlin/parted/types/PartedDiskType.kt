@@ -7,9 +7,10 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.pointed
 import kotlinx.cinterop.toKString
 import log.Logger
-import log.fatal
+import log.logFatal
 import native.libparted.PedDiskType
 import parted.bindings.PartedBindings
+import parted.exception.PedDiskTypeException
 import kotlin.reflect.KClass
 
 @OptIn(ExperimentalForeignApi::class)
@@ -51,7 +52,7 @@ enum class PartedDiskType(val typeName: String) {
         }
 
         override fun createOwned(cPointer: CPointer<PedDiskType>): PartedDiskType {
-            fatal(IllegalStateException("Owned disk types do not exist."))
+            logFatal(logger, PedDiskTypeException("Owned disk types do not exist."))
         }
     }
 }

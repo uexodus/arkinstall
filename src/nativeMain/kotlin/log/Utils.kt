@@ -6,18 +6,15 @@ import platform.posix.stderr
 import kotlin.system.exitProcess
 
 @OptIn(ExperimentalForeignApi::class)
-fun fatal(e: Throwable): Nothing {
-    val brightRedBold = "\u001B[1;91m"
-    val reset = "\u001B[0m"
-    val message = "${brightRedBold}${e::class.simpleName}${reset}: ${e.message}"
+fun printlnError(message: String) = fprintf(stderr, "%s\n", message)
 
-    fprintf(stderr, "%s\n", message)
+fun logFatal(logger: Logger, exception: Throwable): Nothing {
+    logger.e(exception)
     exitProcess(1)
 }
 
-fun logFatal(logger: Logger, e: Throwable): Nothing {
-    logger.e { e.message ?: "No message" }
-    fatal(e)
+inline fun <reified T> Result<T>.getOrExit(logger: Logger): T = getOrElse { exception ->
+    logFatal(logger, exception)
 }
 
-fun <T> Result<T>.getOrExit(): T = getOrElse { fatal(it) }
+inline fun <reified T : Any> logger(): Logger = Logger(T::class)

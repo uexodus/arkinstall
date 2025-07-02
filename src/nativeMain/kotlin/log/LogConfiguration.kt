@@ -5,8 +5,10 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.format.char
 import kotlinx.io.files.Path
+import log.backends.ConsoleLogger
 import log.backends.FileLogger
 import log.backends.SysLogger
+import log.types.LogLevel
 
 object LogConfiguration {
     /** Name of the program that appears in `journalctl` and dictates the log path. */
@@ -28,5 +30,9 @@ object LogConfiguration {
         secondFraction(9)
     }
 
-    val backends = setOf(FileLogger(), SysLogger())
+    val backends = setOf(
+        FileLogger(LogLevel.DEBUG),
+        SysLogger(LogLevel.INFO),
+        ConsoleLogger(LogLevel.WARNING)
+    )
 }

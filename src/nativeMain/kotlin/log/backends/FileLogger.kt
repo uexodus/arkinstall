@@ -1,4 +1,5 @@
 package log.backends
+
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.datetime.Clock
@@ -10,26 +11,35 @@ import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.writeString
 import log.LogConfiguration
 import log.types.LogLevel
+import kotlin.reflect.KClass
 
-class FileLogger(override val logLevel: LogLevel = LogLevel.DEBUG) : LogBackend {
+class FileLogger(override val logLevel: LogLevel) : LogBackend {
     private val channel = Channel<String>(Channel.UNLIMITED)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var job = scope.launch {
         for (line in channel) appendToFile(line)
     }
 
-    override fun log(level: LogLevel, message: String) {
+    override fun log(level: LogLevel, module: KClass<*>, message: String) {
         if (level > logLevel) return
 
-        val timestamp = Clock.System.now()
+        val line = "${timestamp()} - [${module.simpleName}] $message"
+
+        runBlocking { channel.send(line) }
+    }
+
+    override fun error(module: KClass<*>, exception: KClass<*>, message: String) {
+        if (LogLevel.ERROR > logLevel) return
+
+        val line = "${timestamp()} - [${module.simpleName}] [${exception.simpleName}] $message"
+
+        runBlocking { channel.send(line) }
+    }
+
+    private fun timestamp(): String {
+        return Clock.System.now()
             .toLocalDateTime(TimeZone.currentSystemDefault())
             .format(LogConfiguration.timestampFormat)
-
-        val line = "$timestamp - [$level] $message"
-
-        runBlocking {
-            channel.send(line)
-        }
     }
 
     private fun appendToFile(line: String) {

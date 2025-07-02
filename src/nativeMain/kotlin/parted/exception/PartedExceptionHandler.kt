@@ -49,14 +49,18 @@ inline fun <T, reified E : Exception> partedTry(
         block()
     } finally {
         val exceptions = drainExceptions()
-        val logger = Logger(E::class)
+        val logger = Logger(PartedBindings::class)
 
         val errors: ArrayList<PartedException> = arrayListOf()
 
         for (e in exceptions) {
-            if (e.type < PartedExceptionType.ERROR) logger.log(e.type.toLogLevel()) { e.message }
-            else errors.add(e)
+            if (e.type < PartedExceptionType.ERROR) {
+                logger.log(e.type.toLogLevel()) { e.message }
+            } else {
+                errors.add(e)
+            }
         }
+
         if (errors.isNotEmpty()) {
             throw exceptionFactory(exceptions.joinToString("\n") { it.message })
         }

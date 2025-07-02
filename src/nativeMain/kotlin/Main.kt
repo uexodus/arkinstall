@@ -1,5 +1,8 @@
 import log.getOrExit
+import log.logger
 import parted.PartedDevice
+import parted.PartedDisk
+import parted.builder.PartedDiskBuilder
 import parted.types.PartedDiskType
 import parted.types.PartedFilesystemType
 import unit.GiB
@@ -14,11 +17,16 @@ fun main(args: Array<String>) {
 
     val devicePath = args.first()
 
-    PartedDevice.open(devicePath).getOrExit().use { device ->
+    PartedDevice.open(devicePath).getOrExit(logger<PartedDevice>()).use { device ->
         println("Device Information:\n$device\n")
 
         device.openDisk().onSuccess {
-            println("WARNING: Partition table already exists on device $devicePath!\n$it")
+            logger<PartedDisk>().w { "Disk already exists..." }
+        }
+
+        if (!promptYesNo("Create a GPT partition table on $devicePath?")) {
+            println("Operation cancelled by user.")
+            return
         }
 
         val disk = device.createDisk(PartedDiskType.GPT) {
@@ -28,12 +36,7 @@ fun main(args: Array<String>) {
             partition(remainingSpace) {
                 type = PartedFilesystemType.EXT4
             }
-        }.getOrExit()
-
-        if (!promptYesNo("Create a GPT partition table on $devicePath?")) {
-            println("Operation cancelled by user.")
-            return
-        }
+        }.getOrExit(logger<PartedDiskBuilder>())
 
         disk.commit().onFailure {
             println("Failed to commit disk changes: ${it.message}")

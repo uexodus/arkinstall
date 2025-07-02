@@ -14,12 +14,17 @@ class Logger(private val owner: KClass<*>) {
     fun w(msg: () -> String) = log(LogLevel.WARNING, msg)
 
     /** Logs a [LogLevel.ERROR] message **/
-    fun e(msg: () -> String) = log(LogLevel.ERROR, msg)
+    fun e(exception: Throwable) = error(exception)
 
     fun log(level: LogLevel, msg: () -> String) {
-        val logText = "${owner.simpleName} - ${msg().trim()}"
         for (backend in LogConfiguration.backends) {
-            backend.log(level, logText)
+            backend.log(level, owner, msg().trim())
+        }
+    }
+
+    private fun error(exception: Throwable) {
+        for (backend in LogConfiguration.backends) {
+            backend.error(owner, exception::class, exception.message ?: "Exception has no message.")
         }
     }
 }
