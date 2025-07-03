@@ -21,7 +21,7 @@ fun main(args: Array<String>) {
         println("Device Information:\n$device\n")
 
         device.openDisk().onSuccess {
-            logger<PartedDisk>().w { "Disk already exists..." }
+            logger<PartedDisk>().w { "Partition table already exists on device $devicePath!" }
         }
 
         if (!promptYesNo("Create a GPT partition table on $devicePath?")) {
