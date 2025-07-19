@@ -17,9 +17,9 @@ import kotlin.reflect.KClass
 @OptIn(ExperimentalForeignApi::class)
 object SafeCPointerRegistry {
     private val logger = Logger(SafeCPointerRegistry::class)
-    private val registry = mutableMapOf<Long, Entry<out CPointed>>()
+    private val registry = mutableMapOf<Long, PointerEntry<out CPointed>>()
 
-    private class Entry<T : CPointed>(
+    class PointerEntry<T : CPointed>(
         val pointedType: KClass<*>,
         val pointer: SafeCPointer<T>,
     )
@@ -33,15 +33,15 @@ object SafeCPointerRegistry {
     fun <T : CPointed, R : SafeCPointer<T>, N : NativeType<T>> getOrCreate(
         cPointer: CPointer<T>,
         pointedType: KClass<N>,
-        create: () -> R
+        create: (CPointer<T>) -> R
     ): R {
         val address = cPointer.rawValue.toLong()
 
         val entry = registry.getOrPut(address) {
-            val pointer = create()
+            val pointer = create(cPointer)
             logger.d { "Registered ${pointer.toDebugString()} type: (${pointedType.qualifiedName})" }
 
-            Entry(pointedType, pointer)
+            PointerEntry(pointedType, pointer)
         }
 
         if (entry.pointedType != pointedType) {

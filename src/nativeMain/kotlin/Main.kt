@@ -1,3 +1,5 @@
+import cmd.SysCommand
+import cmd.runCommand
 import log.getOrExit
 import log.logger
 import parted.PartedDevice
@@ -42,6 +44,9 @@ fun main(args: Array<String>) {
             println("Failed to commit disk changes: ${it.message}")
             return
         }
+
+        runCommand("mkfs.fat -F 32 ${devicePath}1").getOrExit(logger<SysCommand>())
+        runCommand("mkfs.ext4 -F ${devicePath}2").getOrExit(logger<SysCommand>())
 
         println("Final Disk Layout:\n$disk")
     }

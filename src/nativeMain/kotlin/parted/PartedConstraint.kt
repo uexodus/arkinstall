@@ -31,13 +31,13 @@ class PartedConstraint private constructor(
 
         override fun createBorrowed(cPointer: CPointer<PedConstraint>): PartedConstraint {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedConstraint(cPointer)
+                PartedConstraint(it)
             }
         }
 
         override fun createOwned(cPointer: CPointer<PedConstraint>): PartedConstraint {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedConstraint(cPointer) { constraint -> PartedBindings.destroyConstraint(constraint) }
+                PartedConstraint(it) { constraint -> PartedBindings.destroyConstraint(constraint) }
             }
         }
     }

@@ -44,7 +44,7 @@ class PartedException(
 
         override fun createBorrowed(cPointer: CPointer<PedException>): PartedException {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedException(cPointer)
+                PartedException(it)
             }
         }
 

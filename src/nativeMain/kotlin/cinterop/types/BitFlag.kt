@@ -7,6 +7,10 @@ abstract class BitFlag(val flags: UInt) {
 
     protected abstract fun create(flags: UInt): BitFlag
 
+    infix fun or(other: BitFlag): BitFlag {
+        return create(this.flags or other.flags)
+    }
+
     override fun toString(): String {
         val activeFlags = knownFlags.entries
             .filter { (flag, _) -> has(flag) }

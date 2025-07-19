@@ -55,13 +55,13 @@ class PartedGeometry private constructor(
 
         override fun createOwned(cPointer: CPointer<PedGeometry>): PartedGeometry {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedGeometry(cPointer) { geom -> PartedBindings.destroyGeometry(geom) }
+                PartedGeometry(it) { geom -> PartedBindings.destroyGeometry(geom) }
             }
         }
 
         override fun createBorrowed(cPointer: CPointer<PedGeometry>): PartedGeometry {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedGeometry(cPointer)
+                PartedGeometry(it)
             }
         }
     }

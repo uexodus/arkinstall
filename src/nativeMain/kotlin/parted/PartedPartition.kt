@@ -96,13 +96,13 @@ class PartedPartition private constructor(
 
         override fun createBorrowed(cPointer: CPointer<PedPartition>): PartedPartition {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedPartition(cPointer)
+                PartedPartition(it)
             }
         }
 
         override fun createOwned(cPointer: CPointer<PedPartition>): PartedPartition {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedPartition(cPointer) { partition -> PartedBindings.destroyPartition(partition) }
+                PartedPartition(it) { partition -> PartedBindings.destroyPartition(partition) }
             }
         }
     }

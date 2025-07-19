@@ -121,13 +121,13 @@ class PartedDisk private constructor(
 
         override fun createBorrowed(cPointer: CPointer<PedDisk>): PartedDisk {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedDisk(cPointer)
+                PartedDisk(it)
             }
         }
 
         override fun createOwned(cPointer: CPointer<PedDisk>): PartedDisk {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedDisk(cPointer) { PartedBindings.destroyDisk(it) }
+                PartedDisk(it) { PartedBindings.destroyDisk(it) }
             }
         }
     }

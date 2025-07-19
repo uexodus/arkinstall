@@ -4,9 +4,7 @@ import cinterop.exceptions.InvalidBorrowStateException
 import cinterop.exceptions.PointerAlreadyReleasedException
 import cinterop.exceptions.ReleaseDuringBorrowException
 import cinterop.exceptions.UseAfterFreeException
-import kotlinx.cinterop.CPointed
-import kotlinx.cinterop.CPointer
-import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.*
 import log.Logger
 import log.logFatal
 import kotlin.reflect.KClass
@@ -257,13 +255,11 @@ open class SafeCPointer<T : CPointed> protected constructor(
             free: ((CPointer<T>) -> Unit)? = null
         ): SafeCPointer<T> =
             SafeCPointerRegistry.getOrCreate(cPointer, klass) {
-                SafeCPointer(cPointer, free)
+                SafeCPointer(it, free)
             }
 
-        inline fun <reified T : CPointed, reified N : NativeType<T>> create(
-            cPointer: CPointer<T>,
-            noinline free: ((CPointer<T>) -> Unit)? = null
-        ): SafeCPointer<T> = create(cPointer, N::class, free)
+        inline fun <reified T : CVariable, reified N : NativeType<T>> alloc() =
+            create(nativeHeap.alloc<T>().ptr, N::class) { nativeHeap.free(it) }
     }
 }
 

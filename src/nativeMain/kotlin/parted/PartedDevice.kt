@@ -116,13 +116,13 @@ class PartedDevice private constructor(
 
         override fun createBorrowed(cPointer: CPointer<PedDevice>): PartedDevice {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedDevice(cPointer)
+                PartedDevice(it)
             }
         }
 
         override fun createOwned(cPointer: CPointer<PedDevice>): PartedDevice {
             return SafeCPointerRegistry.getOrCreate(cPointer, pointedType) {
-                PartedDevice(cPointer) { dev -> PartedBindings.destroyDevice(dev) }
+                PartedDevice(it) { dev -> PartedBindings.destroyDevice(dev) }
             }
         }
     }
