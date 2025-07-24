@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0](https://github.com/uexodus/arkinstall/compare/v0.1.0...v0.2.0) (2025-07-24)
+
+
+### Features
+
+* **cmd:** create basic SysCommand class ([0c05391](https://github.com/uexodus/arkinstall/commit/0c05391fd6086339cce29de7c1a88e98e48c8201))
+* **parted:** Add PartedPartition path() function. ([611f5d7](https://github.com/uexodus/arkinstall/commit/611f5d7f3501bee5a388c6716701f9307d9b1370))
+* **parted:** add partition flags to PartedPartition and builder. ([41bf391](https://github.com/uexodus/arkinstall/commit/41bf3910aaf755c8eda2b4fe0f133bf5b1fec20a))
+
 ## [0.1.0](https://github.com/uexodus/arkinstall/compare/v0.0.1...v0.1.0) (2025-07-03)
 
 
