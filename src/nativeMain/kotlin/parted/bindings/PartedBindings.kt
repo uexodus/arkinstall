@@ -10,6 +10,7 @@ import parted.PartedPartition
 import parted.exception.*
 import parted.types.PartedDiskType
 import parted.types.PartedFilesystemType
+import parted.types.PartedPartitionFlag
 import parted.types.PartedPartitionType
 
 @OptIn(ExperimentalForeignApi::class)
@@ -123,4 +124,14 @@ object PartedBindings {
     }
 
     fun setExceptionHandler(handler: CPointer<PedExceptionHandler>) = ped_exception_set_handler(handler)
+
+    fun setPartitionFlag(
+        flag: PartedPartitionFlag,
+        partition: PartedPartition,
+        state: Boolean
+    ) = partedTry(::PedPartitionException) {
+        partition.immut { part ->
+            ped_partition_set_flag(part, flag.toUInt(), if (state) 1 else 0)
+        }
+    }
 }

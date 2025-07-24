@@ -12,6 +12,7 @@ import native.libparted.PedPartition
 import parted.bindings.PartedBindings
 import parted.types.NativePedPartition
 import parted.types.PartedFilesystemType
+import parted.types.PartedPartitionFlag
 import parted.types.PartedPartitionType
 
 /** A wrapper for a [PedPartition](https://www.gnu.org/software/parted/api/struct__PedPartition.html) object */
@@ -58,6 +59,11 @@ class PartedPartition private constructor(
     /** Returns true if the [other] partition overlaps with this partition */
     fun overlaps(other: PartedPartition): Boolean {
         return geometry.start <= other.geometry.end && geometry.end >= other.geometry.start
+    }
+
+    /** Enables a [PartedPartitionFlag] on this partition */
+    fun enableFlag(flag: PartedPartitionFlag): Result<Unit> = runCatching {
+        PartedBindings.setPartitionFlag(flag, this, true)
     }
 
     override fun toString() = """

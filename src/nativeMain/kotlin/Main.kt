@@ -7,6 +7,7 @@ import parted.PartedDisk
 import parted.builder.PartedDiskBuilder
 import parted.types.PartedDiskType
 import parted.types.PartedFilesystemType
+import parted.types.PartedPartitionFlag
 import unit.GiB
 
 
@@ -34,6 +35,7 @@ fun main(args: Array<String>) {
         val disk = device.createDisk(PartedDiskType.GPT) {
             partition(1L.GiB) {
                 type = PartedFilesystemType.FAT32
+                flags = setOf(PartedPartitionFlag.BOOT)
             }
             partition(remainingSpace) {
                 type = PartedFilesystemType.EXT4
