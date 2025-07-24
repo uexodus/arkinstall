@@ -1,13 +1,16 @@
 import cmd.SysCommand
 import cmd.runCommand
+import disk.DeviceHandler
 import log.getOrExit
 import log.logger
 import parted.PartedDevice
 import parted.PartedDisk
+import parted.PartedPartition
 import parted.builder.PartedDiskBuilder
-import parted.types.PartedDiskType
-import parted.types.PartedFilesystemType
-import parted.types.PartedPartitionFlag
+import parted.types.PartedDiskType.GPT
+import parted.types.PartedFilesystemType.EXT4
+import parted.types.PartedFilesystemType.FAT32
+import parted.types.PartedPartitionFlag.BOOT
 import unit.GiB
 
 
@@ -19,27 +22,18 @@ fun main(args: Array<String>) {
     }
 
     val devicePath = args.first()
+    val device = PartedDevice.open(devicePath).getOrExit(logger<PartedDevice>())
 
-    PartedDevice.open(devicePath).getOrExit(logger<PartedDevice>()).use { device ->
-        println("Device Information:\n$device\n")
-
-        device.openDisk().onSuccess {
-            logger<PartedDisk>().w { "Partition table already exists on device $devicePath!" }
+    device.use { dev ->
+        if (dev.openDisk().isSuccess) {
+            logger<PartedDisk>().w { "Partition table already exists on $devicePath!" }
         }
 
-        if (!promptYesNo("Create a GPT partition table on $devicePath?")) {
-            println("Operation cancelled by user.")
-            return
-        }
+        if (!promptYesNo("Create a GPT table on $devicePath?")) return
 
-        val disk = device.createDisk(PartedDiskType.GPT) {
-            partition(1L.GiB) {
-                type = PartedFilesystemType.FAT32
-                flags = setOf(PartedPartitionFlag.BOOT)
-            }
-            partition(remainingSpace) {
-                type = PartedFilesystemType.EXT4
-            }
+        val disk = dev.new(GPT) {
+            partition(1.GiB) { type = FAT32; flags = setOf(BOOT) }
+            partition(remainingSpace) { type = EXT4 }
         }.getOrExit(logger<PartedDiskBuilder>())
 
         disk.commit().onFailure {
@@ -47,8 +41,13 @@ fun main(args: Array<String>) {
             return
         }
 
-        runCommand("mkfs.fat -F 32 ${devicePath}1").getOrExit(logger<SysCommand>())
-        runCommand("mkfs.ext4 -F ${devicePath}2").getOrExit(logger<SysCommand>())
+        val (boot, root) = disk.partitions.take(2)
+            .map { p -> p.path().getOrExit(logger<PartedPartition>()) }
+
+        DeviceHandler.udevSync()
+
+        runCommand("mkfs.fat -F 32 $boot").getOrExit(logger<SysCommand>())
+        runCommand("mkfs.ext4 -F $root").getOrExit(logger<SysCommand>())
 
         println("Final Disk Layout:\n$disk")
     }

@@ -72,7 +72,8 @@ class PartedDevice private constructor(
         return PartedDisk.fromDevice(this)
     }
 
-    fun createDisk(type: PartedDiskType, block: PartedDiskBuilder.() -> Unit): Result<PartedDisk> {
+    /** Creates new a disk using the [PartedDiskBuilder] */
+    fun new(type: PartedDiskType, block: PartedDiskBuilder.() -> Unit): Result<PartedDisk> {
         return PartedDiskBuilder(this, type)
             .apply(block).build()
     }

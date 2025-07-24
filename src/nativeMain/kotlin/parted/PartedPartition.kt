@@ -4,12 +4,10 @@ import base.Summarisable
 import cinterop.SafeCPointer
 import cinterop.SafeCPointerFactory
 import cinterop.SafeCPointerRegistry
-import kotlinx.cinterop.CPointer
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.pointed
-import kotlinx.cinterop.ptr
+import kotlinx.cinterop.*
 import native.libparted.PedPartition
 import parted.bindings.PartedBindings
+import parted.exception.PedPartitionException
 import parted.types.NativePedPartition
 import parted.types.PartedFilesystemType
 import parted.types.PartedPartitionFlag
@@ -54,6 +52,11 @@ class PartedPartition private constructor(
             addChild(geometryPointer)
             geometryPointer
         }
+    }
+
+    fun path(): Result<String> = kotlin.runCatching {
+        PartedBindings.getPartitionPath(this)?.toKString()
+            ?: throw PedPartitionException("Unable to get partition path")
     }
 
     /** Returns true if the [other] partition overlaps with this partition */

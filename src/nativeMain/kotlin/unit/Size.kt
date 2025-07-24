@@ -5,7 +5,7 @@ import kotlin.math.absoluteValue
 /**
  * Represents a size in bytes.
  */
-value class Size(val bytes: Long): Comparable<Size> {
+value class Size(val bytes: Long) : Comparable<Size> {
     companion object {
         /** Creates a [Size] from an [amount] and a [unit]. */
         fun of(amount: Long, unit: SizeUnit): Size = Size(amount * unit.bytes)
@@ -63,18 +63,18 @@ enum class SizeUnit(val bytes: Long) {
 
 
 /** Extension property to create a [Size] in bytes. */
-val Long.B get() = Size.of(this, SizeUnit.B)
+val Int.B get() = Size.of(this.toLong(), SizeUnit.B)
 
 /** Extension property to create a [Size] in kibibytes.*/
-val Long.KiB get() = Size.of(this, SizeUnit.KiB)
+val Int.KiB get() = Size.of(this.toLong(), SizeUnit.KiB)
 
 /** Extension property to create a [Size] in mebibyte.*/
-val Long.MiB get() = Size.of(this, SizeUnit.MiB)
+val Int.MiB get() = Size.of(this.toLong(), SizeUnit.MiB)
 
 /** Extension property to create a [Size] in gibibytes.*/
-val Long.GiB get() = Size.of(this, SizeUnit.GiB)
+val Int.GiB get() = Size.of(this.toLong(), SizeUnit.GiB)
 
 /** Extension property to create a [Size] in tebibytes.*/
-val Long.TiB get() = Size.of(this, SizeUnit.TiB)
+val Int.TiB get() = Size.of(this.toLong(), SizeUnit.TiB)
 
 

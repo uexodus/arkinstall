@@ -39,7 +39,7 @@ class PartedDiskBuilder(
     private val partitions = mutableListOf<PartitionConfig>()
     private val bounds = DiskBounds(device)
 
-    var usedSpace = 0L.B
+    var usedSpace = 0.B
 
     val remainingSpace: Size
         get() = bounds.size - usedSpace

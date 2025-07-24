@@ -7,8 +7,8 @@ import unit.Size
 
 class DiskBounds(
     device: PartedDevice,
-    reservedStart: Size = 1L.MiB,
-    reservedEnd: Size = 1L.MiB
+    reservedStart: Size = 1.MiB,
+    reservedEnd: Size = 1.MiB
 ) {
     val start: Long = reservedStart.toSectors(device.logicalSectorSize)
     val size: Size = device.size - reservedStart - reservedEnd

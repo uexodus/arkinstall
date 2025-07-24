@@ -134,4 +134,8 @@ object PartedBindings {
             ped_partition_set_flag(part, flag.toUInt(), if (state) 1 else 0)
         }
     }
+
+    fun getPartitionPath(partition: PartedPartition) = partedTry(::PedPartitionException) {
+        partition.immut { ped_partition_get_path(it) }
+    }
 }
