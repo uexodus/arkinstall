@@ -5,7 +5,7 @@ import log.types.LogLevel
 import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 
-class ConsoleLogger(override val logLevel: LogLevel) : LogBackend {
+class ConsoleLogger(override var logLevel: LogLevel) : LogBackend {
     override fun log(level: LogLevel, module: KClass<*>, message: String) {
         if (level > logLevel) return
 
@@ -26,9 +26,9 @@ class ConsoleLogger(override val logLevel: LogLevel) : LogBackend {
         printlnError("$RED_BOLD${exception.simpleName} - $message$RESET")
     }
 
-    private fun debug(message: String) = println("$GRAY$message$RESET")
+    private fun debug(message: String) = printlnError("$GRAY$message$RESET")
 
-    private fun info(message: String) = println("$WHITE$message$RESET")
+    private fun info(message: String) = printlnError("$WHITE$message$RESET")
 
     private fun warn(message: String) = printlnError("$YELLOW$message$RESET")
 

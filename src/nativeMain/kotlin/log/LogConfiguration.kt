@@ -30,9 +30,13 @@ object LogConfiguration {
         secondFraction(9)
     }
 
+    val fileLogger = FileLogger(LogLevel.DEBUG)
+    val sysLogger = SysLogger(LogLevel.INFO)
+    val consoleLogger = ConsoleLogger(LogLevel.DEBUG)
+
     val backends = setOf(
-        FileLogger(LogLevel.DEBUG),
-        SysLogger(LogLevel.INFO),
-        ConsoleLogger(LogLevel.WARNING)
+        fileLogger,
+        sysLogger,
+        consoleLogger
     )
 }

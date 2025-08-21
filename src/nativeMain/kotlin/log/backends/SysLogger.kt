@@ -7,7 +7,7 @@ import log.types.LogLevel
 import kotlin.reflect.KClass
 
 @OptIn(ExperimentalForeignApi::class)
-class SysLogger(override val logLevel: LogLevel) : LogBackend {
+class SysLogger(override var logLevel: LogLevel) : LogBackend {
     private val arena = Arena()
     private var isLogOpen = false
     private lateinit var identityPointer: CPointer<ByteVar>

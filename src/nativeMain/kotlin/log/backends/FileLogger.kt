@@ -13,7 +13,7 @@ import log.LogConfiguration
 import log.types.LogLevel
 import kotlin.reflect.KClass
 
-class FileLogger(override val logLevel: LogLevel) : LogBackend {
+class FileLogger(override var logLevel: LogLevel) : LogBackend {
     private val channel = Channel<String>(Channel.UNLIMITED)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var job = scope.launch {
