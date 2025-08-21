@@ -109,7 +109,7 @@ class PartedDevice private constructor(
 
                 throw PedDeviceException(
                     buildString {
-                        append("Path '$devicePath' does not exist.\n")
+                        append("Cannot open device as path '$devicePath' does not exist.\n")
                         if (available.isNotEmpty()) {
                             append("Available devices: $available")
                         } else {
@@ -118,8 +118,6 @@ class PartedDevice private constructor(
                     }
                 )
             }
-
-            println("Getting device from path $devicePath")
 
             val cPointer = PartedBindings.getDevice(devicePath.toString())
 
