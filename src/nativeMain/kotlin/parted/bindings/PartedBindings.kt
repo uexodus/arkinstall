@@ -20,6 +20,13 @@ object PartedBindings {
         ped_device_probe_all()
     }
 
+    fun nextDevice(device: PartedDevice?): CPointer<PedDevice>? = partedTry(
+        ::PedDeviceException
+    ) {
+        device?.immut { dev -> ped_device_get_next(dev) }
+            ?: ped_device_get_next(null)
+    }
+
     fun destroyDevice(dev: CPointer<PedDevice>) = partedTry(::PedDeviceException) {
         ped_device_destroy(dev)
     }
@@ -40,11 +47,11 @@ object PartedBindings {
         ped_geometry_destroy(geometry)
     }
 
-    fun getDevice(name: String) = partedTryNotNull(
+    fun getDevice(path: String) = partedTryNotNull(
         ::PedDeviceException,
-        "Failed to retrieve device: $name"
+        "Failed to retrieve device: $path"
     ) {
-        ped_device_get(name)
+        ped_device_get(path)
     }
 
     fun getDisk(device: PartedDevice) = partedTryNotNull(

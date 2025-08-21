@@ -100,19 +100,45 @@ class PartedDevice private constructor(
         override val pointedType = NativePedDevice::class
 
         /** Attempts to open the device at the given [path] */
-        fun open(path: String, refreshDevices: Boolean = true): Result<PartedDevice> = runCatching {
+        fun open(devicePath: Path, refreshDevices: Boolean = true): Result<PartedDevice> = runCatching {
             if (refreshDevices) PartedBindings.refreshDevices()
 
-            val devicePath = Path(path)
             if (!SystemFileSystem.exists(devicePath)) {
-                throw PedDeviceException("Device not found at path $path")
+                val available = devices(false)
+                    .joinToString(", ") { it.path }
+
+                throw PedDeviceException(
+                    buildString {
+                        append("Path '$devicePath' does not exist.\n")
+                        if (available.isNotEmpty()) {
+                            append("Available devices: $available")
+                        } else {
+                            append("No block devices detected.")
+                        }
+                    }
+                )
             }
 
             println("Getting device from path $devicePath")
 
-            val cPointer = PartedBindings.getDevice(path)
+            val cPointer = PartedBindings.getDevice(devicePath.toString())
 
             createOwned(cPointer)
+        }
+
+        fun devices(refreshDevices: Boolean = true): Set<PartedDevice> {
+            if (refreshDevices) PartedBindings.refreshDevices()
+
+            val devices = mutableSetOf<PartedDevice>()
+            var devicePointer = PartedBindings.nextDevice(null)
+
+            while (devicePointer != null) {
+                val device = createOwned(devicePointer)
+                if (!devices.add(device)) break
+                devicePointer = PartedBindings.nextDevice(device)
+            }
+
+            return devices
         }
 
         override fun createBorrowed(cPointer: CPointer<PedDevice>): PartedDevice {

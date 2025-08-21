@@ -1,6 +1,6 @@
 import cmd.SysCommand
 import cmd.runCommand
-import disk.DeviceHandler
+import kotlinx.io.files.Path
 import log.getOrExit
 import log.logger
 import parted.PartedDevice
@@ -21,7 +21,7 @@ fun main(args: Array<String>) {
         return
     }
 
-    val devicePath = args.first()
+    val devicePath = Path(args.first())
     val device = PartedDevice.open(devicePath).getOrExit(logger<PartedDevice>())
 
     device.use { dev ->
@@ -44,7 +44,6 @@ fun main(args: Array<String>) {
         val (boot, root) = disk.partitions.take(2)
             .map { p -> p.path().getOrExit(logger<PartedPartition>()) }
 
-        DeviceHandler.udevSync()
 
         runCommand("mkfs.fat -F 32 $boot").getOrExit(logger<SysCommand>())
         runCommand("mkfs.ext4 -F $root").getOrExit(logger<SysCommand>())
