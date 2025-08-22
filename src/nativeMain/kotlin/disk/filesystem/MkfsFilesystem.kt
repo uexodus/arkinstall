@@ -13,7 +13,7 @@ sealed class MkfsFilesystem(
 ) : Filesystem {
 
     override fun format(devicePath: Path) {
-        runCommand("mkfs.$filesystemType ${options.joinToString(" ")} $devicePath").getOrThrow()
+        runCommand("mkfs.$filesystemType", *options, devicePath.toString()).getOrThrow()
     }
 
     override fun mount(partitionPath: Path, mountPoint: Path?) {
@@ -22,6 +22,6 @@ sealed class MkfsFilesystem(
         if (!SystemFileSystem.exists(mountPoint)) {
             SystemFileSystem.createDirectories(mountPoint)
         }
-        runCommand("mount $partitionPath $mountPoint").getOrThrow()
+        runCommand("mount", partitionPath.toString(), mountPoint.toString()).getOrThrow()
     }
 }

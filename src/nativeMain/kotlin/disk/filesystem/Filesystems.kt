@@ -26,10 +26,10 @@ object LinuxSwapFilesystem : Filesystem {
     override val partedFilesystemType = LINUX_SWAP
 
     override fun format(devicePath: Path) {
-        runCommand("mkswap -f $devicePath").getOrThrow()
+        runCommand("mkswap", "-f", devicePath.toString()).getOrThrow()
     }
 
     override fun mount(partitionPath: Path, mountPoint: Path?) {
-        runCommand("swapon $partitionPath").getOrThrow()
+        runCommand("swapon", partitionPath.toString()).getOrThrow()
     }
 }

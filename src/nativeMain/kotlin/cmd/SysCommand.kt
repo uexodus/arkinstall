@@ -16,21 +16,23 @@ import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalForeignApi::class)
 class SysCommand(
-    private val cmd: String,
-    private val printOutput: Boolean = false
+    private val printOutput: Boolean = false,
+    vararg command: String
 ) {
+    val command = command.toList()
+    val cmd = command.joinToString(" ")
+
     var output: String = ""
         private set
 
     private val epoll = Epoll()
 
-    /** Executes the given [cmd] in pty */
+    /** Executes the given [command] in pty */
     fun execute(): Result<Unit> {
         val (pid, fd) = forkPty()
 
         if (pid == 0) {
             memScoped {
-                val command = listOf("/bin/sh", "-c", cmd)
                 command.toNullTerminatedCString(this).use { commandPtr ->
                     commandPtr.immut { execvp(command.first(), it) }
                 }
@@ -68,4 +70,4 @@ class SysCommand(
     }
 }
 
-fun runCommand(cmd: String) = SysCommand(cmd, printOutput = true).execute()
+fun runCommand(vararg command: String) = SysCommand(printOutput = true, *command).execute()
