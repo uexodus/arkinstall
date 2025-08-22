@@ -1,5 +1,5 @@
-import cmd.SysCommand
-import cmd.runCommand
+import disk.filesystem.Ext4Filesystem
+import disk.filesystem.Fat32Filesystem
 import kotlinx.io.files.Path
 import log.getOrExit
 import log.logger
@@ -45,8 +45,11 @@ fun main(args: Array<String>) {
             .map { p -> p.path().getOrExit(logger<PartedPartition>()) }
 
 
-        runCommand("mkfs.fat -F 32 $boot").getOrExit(logger<SysCommand>())
-        runCommand("mkfs.ext4 -F $root").getOrExit(logger<SysCommand>())
+        Fat32Filesystem.format(Path(boot))
+        Ext4Filesystem.format(Path(root))
+
+        Ext4Filesystem.mount(Path(root), Path("/mnt"))
+        Fat32Filesystem.mount(Path(boot), Path("/mnt/boot"))
 
         println("Final Disk Layout:\n$disk")
     }
