@@ -61,14 +61,9 @@ class SysCommand(
             val events = epoll.poll(0.1.seconds)
 
             for (event in events) {
-                if (event.has(ERR)) {
-                    drain(fd)
-                    throw SysCommandException(cmd, ExitStatus(pid), output.toString())
-                }
-                if (event.has(HUP)) {
+                if (event.has(ERR) || event.has(HUP)) {
                     drain(fd)
                     val status = ExitStatus(pid)
-                    println(status.exitStatus)
                     if (!status.isSuccessful) {
                         throw SysCommandException(cmd, status, output.toString())
                     }
@@ -99,5 +94,4 @@ class SysCommand(
             }
         }
     }
-
 }
