@@ -1,6 +1,6 @@
 package disk.filesystem
 
-import cmd.runCommand
+import cmd.SysCommand
 import kotlinx.io.files.Path
 import parted.types.PartedFilesystemType.*
 
@@ -26,10 +26,10 @@ object LinuxSwapFilesystem : Filesystem {
     override val partedFilesystemType = LINUX_SWAP
 
     override fun format(devicePath: Path) {
-        runCommand("mkswap", "-f", devicePath.toString()).getOrThrow()
+        SysCommand(listOf("mkswap", "-f", devicePath.toString()))
     }
 
     override fun mount(partitionPath: Path, mountPoint: Path?) {
-        runCommand("swapon", partitionPath.toString()).getOrThrow()
+        SysCommand(listOf("swapon", partitionPath.toString()))
     }
 }

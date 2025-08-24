@@ -3,8 +3,8 @@ package cinterop.util
 import cinterop.SafeCPointer
 import cinterop.types.NativeCPointerVarByteVar
 import kotlinx.cinterop.*
-import log.logFatal
-import log.logger
+import platform.posix.posix_errno
+import unit.Size
 
 @OptIn(ExperimentalForeignApi::class)
 fun <T : CPointed, R : SafeCPointer<T>> CPointer<T>.asList(
@@ -32,22 +32,23 @@ fun List<String>.toNullTerminatedCString(autofreeScope: AutofreeScope): SafeCPoi
 
 /** Reads a file descriptor stream into a buffer of the given [size] */
 @OptIn(ExperimentalForeignApi::class)
-fun SafeCPointer<IntVar>.read(size: Int): ByteArray {
-    val buffer = ByteArray(size)
+fun Int.read(size: Size): ByteArray {
+    val buffer = ByteArray(size.bytes.toInt())
     val bytesRead = buffer.usePinned { buf ->
-        immut { fd ->
-            platform.posix.read(
-                fd.pointed.value,
-                buf.addressOf(0),
-                buffer.size.toULong()
-            ).toInt()
-        }
+        platform.posix.read(
+            this,
+            buf.addressOf(0),
+            buffer.size.toULong()
+        ).toInt()
     }
 
     return when {
-        bytesRead < 0 -> logFatal(logger<SafeCPointer<IntVar>>(), RuntimeException("read() on file descriptor failed."))
+        bytesRead < 0 -> throw RuntimeException(
+            "read() on file descriptor $this failed with error code ${posix_errno()}."
+        )
+
         bytesRead == 0 -> byteArrayOf()
-        bytesRead < size -> buffer.copyOf(bytesRead)
+        bytesRead < buffer.size -> buffer.copyOf(bytesRead)
         else -> buffer
     }
 }

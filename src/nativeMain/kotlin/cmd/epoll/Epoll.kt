@@ -1,11 +1,9 @@
 package cmd.epoll
 
-import cinterop.SafeCPointer
 import cinterop.types.BitFlag
 import cmd.epoll.bindings.EpollBindings
 import cmd.epoll.types.EpollEvent
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.IntVar
 import kotlin.time.Duration
 
 @OptIn(ExperimentalForeignApi::class)
@@ -13,7 +11,7 @@ class Epoll : AutoCloseable {
     val epollFd = EpollBindings.create()
 
     /** Registers a file descriptor with epoll to monitor the given [events] */
-    fun register(fd: SafeCPointer<IntVar>, events: BitFlag) {
+    fun register(fd: Int, events: BitFlag) {
         EpollBindings.register(epollFd, fd, events.flags)
     }
 

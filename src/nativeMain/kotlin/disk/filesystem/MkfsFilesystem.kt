@@ -1,6 +1,6 @@
 package disk.filesystem
 
-import cmd.runCommand
+import cmd.SysCommand
 import disk.exceptions.PartitionMountException
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -13,7 +13,10 @@ sealed class MkfsFilesystem(
 ) : Filesystem {
 
     override fun format(devicePath: Path) {
-        runCommand("mkfs.$filesystemType", *options, devicePath.toString()).getOrThrow()
+        SysCommand(
+            listOf("mkfs.$filesystemType", *options, devicePath.toString()),
+            printOutput = true
+        )
     }
 
     override fun mount(partitionPath: Path, mountPoint: Path?) {
@@ -22,6 +25,6 @@ sealed class MkfsFilesystem(
         if (!SystemFileSystem.exists(mountPoint)) {
             SystemFileSystem.createDirectories(mountPoint)
         }
-        runCommand("mount", partitionPath.toString(), mountPoint.toString()).getOrThrow()
+        SysCommand(listOf("mount", partitionPath.toString(), mountPoint.toString()))
     }
 }

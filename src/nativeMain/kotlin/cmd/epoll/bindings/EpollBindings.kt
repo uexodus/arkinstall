@@ -1,6 +1,5 @@
 package cmd.epoll.bindings
 
-import cinterop.SafeCPointer
 import kotlinx.cinterop.*
 import platform.linux.*
 
@@ -8,11 +7,11 @@ import platform.linux.*
 object EpollBindings {
     fun create(): Int = epoll_create1(0)
 
-    fun register(epollFd: Int, fd: SafeCPointer<IntVar>, events: UInt): Int = memScoped {
+    fun register(epollFd: Int, fd: Int, events: UInt): Int = memScoped {
         val epollEvent = alloc<epoll_event> {
             this.events = events
         }
-        fd.immut { epoll_ctl(epollFd, EPOLL_CTL_ADD, it.pointed.value, epollEvent.ptr) }
+        epoll_ctl(epollFd, EPOLL_CTL_ADD, fd, epollEvent.ptr)
     }
 
     fun wait(epollFd: Int, maxEvents: Int, timeout: Int): List<UInt> = memScoped {
