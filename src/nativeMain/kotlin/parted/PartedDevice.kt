@@ -49,8 +49,13 @@ class PartedDevice private constructor(
         get() = immut { it.pointed.model?.toKString() ?: "" }
 
     /** /dev entry for the block device. */
-    val path: String
-        get() = immut { it.pointed.path?.toKString() ?: "" }
+    val path: Path
+        get() = immut {
+            it.pointed.path
+                ?.toKString()
+                ?.let { path -> Path(path) }
+                ?: throw PedDeviceException("Unable to get path from device (unknown).")
+        }
 
     /** Physical sector size, in bytes */
     val physicalSectorSize: Size
@@ -105,7 +110,7 @@ class PartedDevice private constructor(
 
             if (!SystemFileSystem.exists(devicePath)) {
                 val available = devices(false)
-                    .joinToString(", ") { it.path }
+                    .joinToString(", ") { it.path.toString() }
 
                 throw PedDeviceException(
                     buildString {

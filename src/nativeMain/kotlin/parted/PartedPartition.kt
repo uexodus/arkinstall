@@ -5,6 +5,7 @@ import cinterop.SafeCPointer
 import cinterop.SafeCPointerFactory
 import cinterop.SafeCPointerRegistry
 import kotlinx.cinterop.*
+import kotlinx.io.files.Path
 import native.libparted.PedPartition
 import parted.bindings.PartedBindings
 import parted.exception.PedPartitionException
@@ -54,10 +55,10 @@ class PartedPartition private constructor(
         }
     }
 
-    fun path(): Result<String> = kotlin.runCatching {
-        PartedBindings.getPartitionPath(this)?.toKString()
-            ?: throw PedPartitionException("Unable to get partition path")
-    }
+    val path: Path
+        get() = PartedBindings.getPartitionPath(this)?.toKString()
+            ?.let { Path(it) }
+            ?: throw PedPartitionException("Unable to get partition path.")
 
     /** Returns true if the [other] partition overlaps with this partition */
     fun overlaps(other: PartedPartition): Boolean {

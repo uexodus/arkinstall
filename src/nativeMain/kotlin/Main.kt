@@ -5,7 +5,6 @@ import log.getOrExit
 import log.logger
 import parted.PartedDevice
 import parted.PartedDisk
-import parted.PartedPartition
 import parted.builder.PartedDiskBuilder
 import parted.types.PartedDiskType.GPT
 import parted.types.PartedFilesystemType.EXT4
@@ -41,15 +40,13 @@ fun main(args: Array<String>) {
             return
         }
 
-        val (boot, root) = disk.partitions.take(2)
-            .map { p -> p.path().getOrExit(logger<PartedPartition>()) }
+        val (boot, root) = disk.partitions.take(2).map { p -> p.path }
 
+        Fat32Filesystem.format(boot)
+        Ext4Filesystem.format(root)
 
-        Fat32Filesystem.format(Path(boot))
-        Ext4Filesystem.format(Path(root))
-
-        Ext4Filesystem.mount(Path(root), Path("/mnt"))
-        Fat32Filesystem.mount(Path(boot), Path("/mnt/boot"))
+        Ext4Filesystem.mount(root, Path("/mnt"))
+        Fat32Filesystem.mount(boot, Path("/mnt/boot"))
 
         println("Final Disk Layout:\n$disk")
     }
