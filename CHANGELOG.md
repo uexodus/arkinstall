@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0](https://github.com/uexodus/arkinstall/compare/v0.1.0...v0.2.0) (2025-08-24)
+
+
+### Features
+
+* **cmd:** create basic SysCommand class ([0c05391](https://github.com/uexodus/arkinstall/commit/0c05391fd6086339cce29de7c1a88e98e48c8201))
+* **disk:** create filesystem implementations with format and mount. ([1edaf63](https://github.com/uexodus/arkinstall/commit/1edaf63d98f1dd02d66f8fc5dcccd93341c19507))
+* **parted:** Add PartedPartition path() function. ([611f5d7](https://github.com/uexodus/arkinstall/commit/611f5d7f3501bee5a388c6716701f9307d9b1370))
+* **parted:** add partition flags to PartedPartition and builder. ([41bf391](https://github.com/uexodus/arkinstall/commit/41bf3910aaf755c8eda2b4fe0f133bf5b1fec20a))
+* **parted:** improve device open ergonomics and error reporting ([58857f2](https://github.com/uexodus/arkinstall/commit/58857f2e960922b38db2a78b0701d26718978691))
+
+
+### Bug Fixes
+
+* **disk:** close fd on failure and drain output in SysCommand ([ba4ca59](https://github.com/uexodus/arkinstall/commit/ba4ca595097469af5356171b4c3bc4268f7b7b89))
+* **disk:** use varargs instead of single string to avoid broken paths ([e184522](https://github.com/uexodus/arkinstall/commit/e1845229c4b5571800403781df9eecf543421801))
+
 ## [0.1.0](https://github.com/uexodus/arkinstall/compare/v0.0.1...v0.1.0) (2025-07-03)
 
 
